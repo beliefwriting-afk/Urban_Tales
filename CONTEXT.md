@@ -24,11 +24,13 @@
 | 人力 | 一人（企劃、程式、美術、內容全包） |
 | 期限 | 無硬性截止日，但越快做完越好 |
 | 平台 | 手機瀏覽器優先的網頁應用（免安裝） |
-| 前端框架 | **SvelteKit** |
+| 前端框架 | **SvelteKit 2 ＋ Svelte 5（runes）** |
+| 語言 | **TypeScript 全端**。Python 僅用於 `tools/` 的離線工具，不部署 |
 | 部署 | Zeabur ＋ Zeabur AI Hub |
-| 語言 | 僅繁體中文（架構預留多語言欄位） |
+| 內容語言 | 僅繁體中文（架構預留多語言欄位） |
 | 美術 | 像素風，**角色除外**（角色為手繪立繪） |
 | 專案資料夾 | `C:\Users\erics\Desktop\Urban_Tales` |
+| GitHub | `https://github.com/beliefwriting-afk/Urban_Tales`（私有） |
 
 ---
 
@@ -40,6 +42,8 @@
 | `Urban_Tales_企劃書_v0.2.md` | **權威文件**。定義做什麼／為什麼／刻意不做什麼。含決策紀錄（附錄 A）與待確認清單（附錄 B） |
 | `Urban_Tales_SDD_v0.1.md` | **系統設計文件**。定義怎麼實作。15 章 ＋ 附錄 A–E；附錄 A 是可推翻的暫定決策表 |
 | `HANDOFF.md` | **上一次做到哪、下一步做什麼**。換新對話時，讀完本檔接著讀它 |
+| `README.md` | repo 的門面：技術棧、指令、目錄、唯一出口的圖解 |
+| `PY_TO_TS.md` | Python → TypeScript 速查表（君和的程式背景是 Python） |
 | `ref/anim_compare.html` | Live2D vs 分層 PNG 的動態差異示範，兩邊用同一張圖 |
 
 **前身專案**：桌面的 `City_Soul_AI`（Unity 3D App 版，SDD v2.2）。
@@ -76,8 +80,25 @@
 5. 不對敏感歷史武斷定論，區分「已知史實／民間傳說／角色想像」。
 
 > 前身專案的教訓：規則只掛在主要對話路徑上，其餘生成路徑繞過了它。**不要重蹈**。
->
-> SDD §6.1 的落實方式：所有會產出靈魂台詞的路徑收斂到單一函式 `speak()`，並用 ESLint 封鎖 AI client 的匯入，只開放給那一個檔案，CI 擋。**違反即建置失敗。**
+
+### ✅ 已經裝上去了（2026-08-25）
+
+這條規則不再只是文件上的要求，**已經在程式碼裡機械化**：
+
+```
+src/lib/server/ai/client.ts     ← 唯一可以 import 'openai' 的檔案
+        ▲  只有這一條線
+src/lib/server/soul/speak.ts    ← 唯一可以 import AI client 的檔案
+        ▲
+    其他所有程式碼               ← ESLint 直接擋，CI 建置失敗
+```
+
+- `eslint.config.js` 的 `FENCE_DEFAULT` / `FENCE_EXEMPT_*` 三個區塊負責封鎖
+- `npm run test:guard` **驗證這道圍籬本身沒有失效**（六個案例：四個該擋、兩個該放行）
+- 全域護欄文字集中在 `content/guardrails.yaml`，**全站唯一一份**，任何景點不得覆寫
+- `npm run content:check` 有一條靜態檢查會擋掉 persona 裡的「神明說」類字串
+
+> ⚠️ 實作過程中 `test:guard` 抓到一個真的漏洞：ESLint flat config 裡同一條規則後面的設定會**整個覆蓋**前面的，導致兩道圍籬互相蓋掉、`openai` 被放行。已修，並在設定檔留了註解。**這證明了 SDD §14「Lint 規則測試」那一條的必要性**——沒有它，漏洞會安靜地存在。
 
 ---
 
@@ -88,25 +109,28 @@
 - 不上傳、不保存玩家照片
 - 訪客模式不蒐集個人資料
 
+**已在 schema 層落實**：`src/lib/server/db/schema.ts` 沒有任何經緯度欄位，且 `content:check` 有一條檢查會掃 `lat`／`lng`／`geography`／`geometry` 欄位定義，出現即建置失敗。
+
 ---
 
 ## 目前狀態
 
-**階段**：SDD 已完成，**正在建立開發環境與接上 GitHub**。尚未開始寫程式。
+**階段**：✅ **開發環境與專案骨架完成，已接上 GitHub。準備進入 P0 技術驗證。**
 
 **細節與下一步請看 `HANDOFF.md`。** 摘要：
 
 1. ✅ SDD v0.1 完成（15 章 ＋ 附錄 A–E）
-2. ✅ 前端框架定案 SvelteKit；專案落腳桌面的 `Urban_Tales`
+2. ✅ 前端框架定案 SvelteKit；並在 2026-08-25 重新評估過改用 Python 的可能，結論是維持（理由見 HANDOFF §2）
 3. ✅ 排除了擋路的系統問題（OneDrive 已知資料夾重導向）
-4. ⬜ 確認 Windows 工具鏈（git / Node / gh）
-5. ⬜ 產專案骨架（**含唯一出口的 ESLint 規則，第一天就要裝上**）
-6. ⬜ `git init` → `npm install` → 建私有 GitHub repo → 首次 push
-7. ⬜ 之後才進 P0 技術驗證：一隻角色在手機網頁上會動、定位實地量測、相機合成
+4. ✅ Windows 工具鏈確認並補齊：Node 24.19.0（fnm）、npm 11.17.0、git 2.55.0
+5. ✅ 專案骨架產出，**含唯一出口的 ESLint 規則，第一天就裝上了**
+6. ✅ `git init` → `npm install` → 私有 GitHub repo → 首次 push 完成（commit `86e9741`，49 檔）
+7. ✅ 驗收全過：`content:check` / `lint` / `test`（8 個）/ `test:guard`（6 個）/ `check`（0 錯）/ `build`
+8. ⬜ **下一步：P0 技術驗證**（先做 P0-4 與 P0-5，各五分鐘）
 
 **最大風險**：單人的美術產能（5 隻角色 ＋ 13 張卡 ＋ 一整套像素資產）。
 對策：P0 先完整做一隻並計時，再決定其餘四隻要不要降規。
-SDD §9.4 的 `SoulRenderer` 抽象層已讓「Live2D vs 分層 PNG」這個未定案**不再阻擋開工**。
+SDD §9.4 的 `SoulRenderer` 抽象層已讓「Live2D vs 分層 PNG」這個未定案**不再阻擋開工**，介面已經寫進 `src/lib/client/soul/renderer.ts`。
 
 **尚未定案的重要項目**：見企劃書附錄 B（11 項）與 SDD 附錄 A（12 項暫定決策，附連動影響）。
 其中**只有「另外兩個景點 ＋ 地圖方案」需要盡快拍板**，SDD 已提出具體建議待確認。
@@ -120,3 +144,4 @@ SDD §9.4 的 `SoulRenderer` 抽象層已讓「Live2D vs 分層 PNG」這個未�
 - **真 AR（WebXR）**——iOS Safari 不支援，跨平台只剩付費 SDK。
 - **拍照辨識判定**——一旦拿掉，辨識成本、失敗率、實勘出題、景點整修導致題目失效等問題全部消失。
 - **專案搬離桌面到 `dev\`**——原本是為了躲 OneDrive 同步，OneDrive 已徹底移除，不需要了。
+- **改用 Python（前端或前後端分離）**——2026-08-25 完整評估過，結論是維持 TypeScript 全端。**理由見 HANDOFF §2，不要重做這個評估。**
