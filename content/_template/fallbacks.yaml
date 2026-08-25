@@ -1,0 +1,74 @@
+# 保底台詞範本 —— content/sites/<site-id>/fallbacks.yaml
+#
+# ★★★ 企劃書 §4.3：措辭即成品，需逐字審。★★★
+#
+# 這些是 AI 失效時玩家真正會看到的字。企劃書 §8.7 要求
+# 「AI 失效一律回退預寫台詞，且視為正常回應，不呈現為錯誤」——
+# 所以它們必須寫成「這個角色會說的話」，不是系統訊息。
+#
+#   ❌ 反例：「抱歉，我現在無法回答。」
+#   ✅ 正例：「這會兒香火太盛，我有些聽不真切……你再說一次？」
+#
+# 每種情境至少 3 句（quotaReached 至少 2 句），隨機選，
+# 避免玩家連續遇到同一句而察覺異常。
+
+siteId: your-site-id
+
+lines:
+  # AI 呼叫失敗／逾時。★ 全域額度用盡時也走這一組（SDD §6.5 第 5 階）——
+  #   全域沒錢是營運狀態，不該讓玩家知道
+  aiUnavailable:
+    - zhHant: 台詞一
+      en: null
+      ja: null
+    - zhHant: 台詞二
+      en: null
+      ja: null
+    - zhHant: 台詞三
+      en: null
+      ja: null
+
+  # 玩家問到禁忌主題（解籤、吉凶、教義比較…）
+  refusal:
+    - zhHant: 台詞一
+      en: null
+      ja: null
+    - zhHant: 台詞二
+      en: null
+      ja: null
+    - zhHant: 台詞三
+      en: null
+      ja: null
+
+  # 玩家問的事素材庫沒有
+  unknown:
+    - zhHant: 台詞一
+      en: null
+      ja: null
+    - zhHant: 台詞二
+      en: null
+      ja: null
+    - zhHant: 台詞三
+      en: null
+      ja: null
+
+  # 玩家自己的每日額度用盡
+  quotaReached:
+    - zhHant: 台詞一
+      en: null
+      ja: null
+    - zhHant: 台詞二
+      en: null
+      ja: null
+
+  # 玩家離題（問天氣、問你是不是 AI…）
+  offTopic:
+    - zhHant: 台詞一
+      en: null
+      ja: null
+    - zhHant: 台詞二
+      en: null
+      ja: null
+    - zhHant: 台詞三
+      en: null
+      ja: null

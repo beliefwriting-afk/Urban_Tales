@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - run: npm ci
+
+      # ─── 護欄：這三步是內容治理與安全界線的機械保險 ───
+      # 任何一步失敗都不給部署。順序照 SDD §13.3。
+
+      - name: 內容驗證（SDD §2.4 十項）
+        run: npm run content:check
+
+      - name: Lint（含 speak() 唯一出口封鎖，SDD §6.1）
+        run: npm run lint
+
+      - name: 護欄機制測試（SDD §14 —— 驗證圍籬本身有效）
+        run: npm run test:guard
+
+      # ─── 一般檢查 ───
+
+      - name: 型別檢查
+        run: npm run check
+
+      - name: 單元測試
+        run: npm test
+
+      - name: 建置
+        run: npm run build
+        env:
+          DATABASE_URL: postgres://user:pass@localhost:5432/placeholder

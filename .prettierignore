@@ -1,0 +1,21 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+/drizzle/
+
+# 內容層的 YAML 由 content:check 把關，排版交給作者。
+# Prettier 會重排 YAML 的縮排與引號，那會讓內容 diff 變得難讀。
+content/**/*.yaml
+
+# ★ 所有 Markdown 文件不歸 Prettier 管。
+#
+# 企劃書、SDD、CONTEXT、HANDOFF 是手寫文件，排版是內容的一部分 ——
+# 對齊的表格、ASCII 架構圖、刻意的換行，Prettier 一律會重排。
+# 文件的可讀性由人負責，不由工具。
+*.md

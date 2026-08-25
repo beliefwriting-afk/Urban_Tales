@@ -1,0 +1,14 @@
+# 全部走 LF。
+#
+# 為什麼用 .gitattributes 而不是改全域 core.autocrlf：
+# .gitattributes 的 eol 屬性優先權高於 core.autocrlf，所以這一檔就能讓
+# 本 repo 全程 LF，而不影響同一台機器上的其他專案。
+# 而且它跟著 repo 進版控，在任何機器 clone 的行為都一致。
+* text=auto eol=lf
+
+# 二進位資產不要做行尾轉換
+*.png  binary
+*.jpg  binary
+*.webp binary
+*.moc3 binary
+*.mtn  binary

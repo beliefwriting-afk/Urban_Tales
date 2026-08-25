@@ -1,0 +1,27 @@
+# 成就卡定義 —— 企劃書 §5.6，共 13 張：相遇 5 ＋ 任務 5 ＋ 劇情 3
+#
+# 卡面 = 立繪角色（非像素）＋ 像素卡框。這是核心設計第 12 條
+# 「材質落差是設計」在卡片上的落點。
+#
+# ★ 現在是空的，因為還有兩個景點沒拍板（見 HANDOFF §6）。
+#   content/sites/ 湊滿五站時，content:check #7 會自動開始強制
+#   「總數 13、分佈 5/5/3」。在那之前它會明確印出「尚未啟用」，
+#   不會靜默跳過。
+
+cards: []
+
+# 範本：
+#   - id: encounter-longshan
+#     kind: encounter        # encounter 相遇 / task 任務 / story 劇情
+#     siteId: longshan-temple
+#     title:
+#       zhHant: 卡片標題
+#       en: null
+#       ja: null
+#     flavor:                # 卡背文字：這張卡想讓玩家記住的那句話
+#       zhHant: 一句話
+#       en: null
+#       ja: null
+#     art:
+#       portrait: /art/longshan-temple/portrait.png
+#       frame: /art/frames/encounter.png

@@ -1,0 +1,28 @@
+# 地方故事素材庫範本 —— content/sites/<site-id>/materials.yaml
+#
+# ★ 這是靈魂「知道的事」的全部來源。素材庫沒有的，它就不該講得斬釘截鐵。
+# ★ 企劃書 §4.2 第 5 條：必須區分知識性質。
+
+siteId: your-site-id
+
+items:
+  - id: example-1
+    # 三選一：已知史實 / 民間傳說 / 角色想像
+    kind: 已知史實
+    # 供引導提問對應。★ prompts.yaml 的 topic 必須在這裡找得到（content:check #4）
+    topic: 建築
+    text:
+      zhHant: 這裡是什麼時候蓋的、誰蓋的、為什麼蓋。
+      en: null
+      ja: null
+    # ★ kind 是「已知史實」時必填出處（content:check #3 會擋）
+    source: 出處書名／檔案／網址
+
+  - id: example-2
+    kind: 民間傳說
+    topic: 傳說
+    text:
+      zhHant: 街坊之間流傳的說法。
+      en: null
+      ja: null
+    source: null

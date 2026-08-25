@@ -1,0 +1,24 @@
+# 引導提問池範本 —— content/sites/<site-id>/prompts.yaml
+#
+# ★ 每站至少 12 題（content:check #5 會擋）。
+#   重複感是玩家判定「這是機器人」的主因（企劃書 §5.3）。
+# ★ 每題的 topic 都必須在 materials.yaml 找得到，
+#   否則會發生「問了但角色答不出來」。
+
+siteId: your-site-id
+
+items:
+  # tier：
+  #   opening  = 一進 L2 就出現
+  #   followup = 聊到相關主題才進候選池
+  #   safety   = 保底，其他都用完時拿出來
+  - id: q1
+    text:
+      zhHant: 這裡以前是什麼樣子？
+      en: null
+      ja: null
+    topic: 建築
+    tier: opening
+    triggerTopics: []
+
+  # …照這個格式補到至少 12 題

@@ -1,0 +1,35 @@
+# 景點定義範本 —— 複製到 content/sites/<你的-site-id>/site.yaml
+# schema 見 content/schema.ts 的 SiteSchema
+
+# 只能小寫英數與連字號。★ 必須跟資料夾名一致
+id: your-site-id
+
+name:
+  zhHant: 景點中文名
+  en: null    # 第一版不填。欄位存在是為了之後加語言不用改結構
+  ja: null
+
+tagline:
+  zhHant: 一句話介紹，會顯示在地圖標記上
+  en: null
+  ja: null
+
+geo:
+  lat: 25.0000
+  lng: 121.0000
+  # 到場判定半徑（公尺，20–150）。★ P0 實地量測後才定案，見 SDD §5.5
+  radiusM: 50
+  # 長條形場域（如剝皮寮）可加額外判定圓心，任一命中即算到場
+  extraCenters: []
+  # extraCenters:
+  #   - { lat: 25.0362, lng: 121.4999 }
+
+# 在像素地圖圖片上的位置（圖片的像素座標，不是經緯度）
+mapPos:
+  x: 0
+  y: 0
+
+# 是否有劇情層（P3，僅萬華三站）
+hasStory: false
+# 劇情線順序。沒有劇情就填 null
+storyOrder: null
