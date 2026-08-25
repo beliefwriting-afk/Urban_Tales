@@ -115,7 +115,7 @@ src/lib/server/soul/speak.ts    ← 唯一可以 import AI client 的檔案
 
 ## 目前狀態
 
-**階段**：✅ **開發環境與專案骨架完成，已接上 GitHub。準備進入 P0 技術驗證。**
+**階段**：✅ **骨架完成並接上 GitHub；P0 技術驗證已開始，P0-4 完成。**
 
 **細節與下一步請看 `HANDOFF.md`。** 摘要：
 
@@ -126,7 +126,9 @@ src/lib/server/soul/speak.ts    ← 唯一可以 import AI client 的檔案
 5. ✅ 專案骨架產出，**含唯一出口的 ESLint 規則，第一天就裝上了**
 6. ✅ `git init` → `npm install` → 私有 GitHub repo → 首次 push 完成（commit `86e9741`，49 檔）
 7. ✅ 驗收全過：`content:check` / `lint` / `test`（8 個）/ `test:guard`（6 個）/ `check`（0 錯）/ `build`
-8. ⬜ **下一步：P0 技術驗證**（先做 P0-4 與 P0-5，各五分鐘）
+8. ✅ **P0-4 完成**（2026-08-25）：Cubism FREE 版**可以**匯出 `.moc3`，Live2D 路線**沒有授權費**。
+   真正的約束是動作參數額度——範本已佔 27／30，只剩 3 個。詳見 SDD §9.4
+9. ⬜ **下一步：P0-5**（AI Hub 連通與快取驗證；需先在 Zeabur Dashboard 建 API 金鑰）
 
 **最大風險**：單人的美術產能（5 隻角色 ＋ 13 張卡 ＋ 一整套像素資產）。
 對策：P0 先完整做一隻並計時，再決定其餘四隻要不要降規。
