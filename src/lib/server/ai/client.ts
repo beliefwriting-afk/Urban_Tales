@@ -17,7 +17,14 @@ export type ChatMessage = { role: 'user' | 'assistant'; content: string };
 export type TokenUsage = {
 	inputTokens: number;
 	outputTokens: number;
-	/** AI Hub 回報的快取命中 token 數，用於驗證 §6.3 的前綴快取是否生效 */
+	/**
+	 * 快取命中的 token 數。
+	 *
+	 * ⚠️ 2026-08-25 實測：**Zeabur AI Hub 不回報這個欄位**，因此此值恆為 0。
+	 * 回傳的 usage 只有 `prompt_tokens_details.text_tokens`。
+	 * 欄位保留是為了換供應商時不必改介面，但**不可拿它推算成本**——
+	 * §10.1 的用量控制一律按無快取單價計算。詳見 SDD §6.3【已驗 V1】。
+	 */
 	cachedTokens: number;
 };
 
@@ -80,7 +87,8 @@ export async function complete(opts: CompleteOptions): Promise<CompleteResult> {
 		usage: {
 			inputTokens: u?.prompt_tokens ?? 0,
 			outputTokens: u?.completion_tokens ?? 0,
-			// OpenAI 相容欄位；AI Hub 若未回報則為 0
+			// OpenAI 相容欄位。AI Hub 實測不回報（2026-08-25），所以這裡恆為 0。
+			// 不要把它當成本依據，理由見上面 TokenUsage 的註解與 SDD §6.3。
 			cachedTokens: u?.prompt_tokens_details?.cached_tokens ?? 0
 		}
 	};
