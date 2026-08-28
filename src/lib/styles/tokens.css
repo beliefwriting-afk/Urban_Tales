@@ -1,0 +1,98 @@
+/*
+	設計 token —— 全站唯一一份視覺常數。
+
+	色票沿用前身專案 City_Soul_AI 的 MapScreen.uss（實機驗證過的一套暖色調）。
+	那套色盤低飽和、暖調，正好是像素風最好用的底——CONTEXT 核心設計第 12 條
+	要求「像素的城市」與「非像素的靈魂」共用色盤，這裡就是那一份共用色盤。
+
+	★ 元件不得寫死顏色。要新色先加在這裡，理由跟 content/guardrails.yaml 一樣：
+	  只有一個地方可以改，就不會出現第二套。
+*/
+
+:root {
+	/* ── 底層 ───────────────────────────────── */
+	--ut-bg-map: #efe7d6; /* 地圖狀態的畫布底 */
+	--ut-bg-cam: #9ba6ae; /* 相機狀態的佔位底（接上 getUserMedia 前） */
+
+	/* ── 面 ─────────────────────────────────── */
+	--ut-surface: #ffffff; /* pill、氣泡、卡片 */
+	--ut-surface-2: #fbf7ee; /* 浮空視窗底 */
+
+	/* ── 字 ─────────────────────────────────── */
+	--ut-ink: #3a362f; /* 主文字 */
+	--ut-ink-2: #5e574b; /* 次要 */
+	--ut-ink-3: #8a8275; /* 說明、註記 */
+	--ut-ink-4: #9a9287; /* placeholder */
+
+	/* ── 線 ─────────────────────────────────── */
+	--ut-line: rgba(0, 0, 0, 0.14); /* 標準邊框，全站最常用的一條 */
+	--ut-line-soft: rgba(0, 0, 0, 0.08);
+
+	/* ── 強調 ───────────────────────────────── */
+	--ut-accent: #c2372a; /* 召喚點、漣漪、主要按鈕 */
+	--ut-warn: #e0963a; /* 未讀提示 */
+
+	/* ── 對話 ───────────────────────────────── */
+	--ut-bubble-me: #e5decc; /* 玩家（靠右，無邊框） */
+	--ut-bubble-soul: #ffffff; /* 靈魂（靠左，有邊框） */
+	--ut-bubble-soul-line: #cfc9bc;
+
+	/* ── 覆蓋 ───────────────────────────────── */
+	--ut-toast: rgba(43, 40, 35, 0.92);
+	--ut-toast-ink: #f4eee0;
+	--ut-overlay: rgba(38, 34, 28, 0.5);
+
+	/* ── 像素地形（只有地圖圖層用）──────────── */
+	--ut-px-grass: #a8be93;
+	--ut-px-grass-2: #8faf7d;
+	--ut-px-block: #d9a99c; /* 建築街廓 */
+	--ut-px-block-2: #c99a8d;
+	--ut-px-water: #9dc0da;
+	--ut-px-road: #b08a72;
+
+	/* ── 形 ─────────────────────────────────── */
+	--ut-r-pill: 999px;
+	--ut-r-card: 16px;
+	--ut-r-sm: 12px;
+	--ut-h-pill: 40px; /* 底部輸入列 */
+	--ut-h-top: 38px; /* 頂列與 ≡ */
+	--ut-h-sm: 30px; /* 聊天列的小圓鈕 */
+
+	/* ── 間距 ───────────────────────────────── */
+	--ut-gap: 8px;
+	--ut-pad: 12px;
+
+	/* ── 字體 ───────────────────────────────── */
+	--ut-font: 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif;
+
+	/* ── 層序 ───────────────────────────────── */
+	/*
+		前身專案在 Unity UI Toolkit 上沒有 z-index，只能靠階層順序排，
+		踩過「浮空視窗底下的按鈕還點得到」的坑（2026-08-18 實機發現）。
+		瀏覽器有 z-index，這裡直接把層序寫成常數，不再靠 DOM 順序。
+	*/
+	--ut-z-map: 1;
+	--ut-z-spirit: 2;
+	--ut-z-chrome: 3; /* 頂列、輸入列、聊天列 */
+	--ut-z-window: 4; /* 浮空視窗 */
+	--ut-z-overlay: 5; /* 壓暗的底 ＋ 放大檢視 */
+	--ut-z-toast: 6; /* 永遠在最上面 */
+}
+
+/*
+	像素風的核心開關：放大時不要做雙線性插值，要保留硬邊。
+	沒有這一條，像素地形與角色會糊成水彩。
+*/
+.ut-pixel {
+	image-rendering: pixelated;
+	image-rendering: crisp-edges;
+}
+
+/* 白底圓角 pill —— 前身專案的 .pill，介面的基本單位 */
+.ut-pill {
+	display: flex;
+	align-items: center;
+	background: var(--ut-surface);
+	border: 1px solid var(--ut-line);
+	color: var(--ut-ink);
+}
