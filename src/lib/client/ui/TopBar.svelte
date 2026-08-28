@@ -38,12 +38,12 @@
 </script>
 
 <div class="top" class:hidden={session.mode === 'camera'}>
-	<div class="ut-pill loc">
-		<span>台北市，萬華區</span>
-		<span>34° C</span>
+	<div class="ut-px-frame loc">
+		<span class="ut-txt">台北市，萬華區</span>
+		<span class="ut-txt">34° C</span>
 	</div>
 	<button
-		class="ut-pill round"
+		class="ut-px-frame round"
 		onclick={() => session.toggleMenu()}
 		aria-label="功能選單"
 		aria-expanded={session.menuOpen}
@@ -58,7 +58,7 @@
 	<nav class="menu" class:icons={iconsOnly}>
 		{#each ITEMS as item (item.key)}
 			<button
-				class="ut-pill mi"
+				class="ut-px-frame mi"
 				class:on={session.openWindow === item.key}
 				onclick={() => (session.openWindow = session.openWindow === item.key ? null : item.key)}
 				aria-label={item.label}
@@ -66,7 +66,7 @@
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
 					<path d={item.d} stroke-linejoin="round" />
 				</svg>
-				<span class="ml">{item.label}</span>
+				<span class="ml ut-txt">{item.label}</span>
 			</button>
 		{/each}
 	</nav>
@@ -89,7 +89,6 @@
 	.loc {
 		flex: 1;
 		height: var(--ut-h-top);
-		border-radius: var(--ut-r-pill);
 		justify-content: space-between;
 		padding: 0 16px;
 		font-size: 13px;
@@ -98,7 +97,6 @@
 	.round {
 		width: var(--ut-h-top);
 		height: var(--ut-h-top);
-		border-radius: 50%;
 		justify-content: center;
 		flex: none;
 		cursor: pointer;
@@ -117,7 +115,6 @@
 	}
 	.mi {
 		height: 36px;
-		border-radius: var(--ut-r-pill);
 		/* 圖示那一側短一點，視覺上才不會空一塊 */
 		padding: 0 16px 0 12px;
 		gap: 7px;
@@ -132,8 +129,8 @@
 		height: 16px;
 		flex: none;
 	}
+	/* 選中的視窗：像素框不能改 border-color（邊框是圖片），改用文字與圖示顏色 */
 	.mi.on {
-		border-color: var(--ut-accent);
 		color: var(--ut-accent);
 	}
 	/* 視窗開著：整顆按鈕縮成一個圖示的大小 */

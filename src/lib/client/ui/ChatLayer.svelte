@@ -17,21 +17,23 @@
 	});
 </script>
 
-<div class="bar" class:hidden={session.mode === 'camera'}>
-	<span class="chip">{session.activeSite?.name ?? ''}</span>
+<div class="bar" class:hidden={session.mode === 'camera'} class:down={!session.panelOpen}>
+	<span class="chip ut-px-frame--win"
+		><span class="ut-txt">{session.activeSite?.name ?? ''}</span></span
+	>
 	<span class="spacer"></span>
 	<!--
 		兩顆按鈕的箭頭共用同一組 SVG 參數（14×14、viewBox 24、stroke-width 2），
 		文字符號（‹ v ^）在不同字型下大小與基線都不一樣，對不齊。
 	-->
-	<button class="ut-pill back" onclick={() => session.leave()}>
+	<button class="ut-px-frame back" onclick={() => session.leave()}>
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 			<path d="M15 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round" />
 		</svg>
-		<span>返回</span>
+		<span class="ut-txt">返回</span>
 	</button>
 	<button
-		class="ut-pill sm"
+		class="ut-px-frame sm"
 		onclick={() => (session.panelOpen = !session.panelOpen)}
 		aria-label={session.panelOpen ? '收合對話' : '展開對話'}
 	>
@@ -50,12 +52,14 @@
 {#if session.panelOpen && session.mode !== 'camera'}
 	<div class="panel" bind:this={boxEl}>
 		{#each session.messages as m (m.id)}
-			<p class={m.from === 'me' ? 'bub me' : 'bub soul'}>{m.text}</p>
+			<p class={m.from === 'me' ? 'bub me ut-px-frame--me' : 'bub soul ut-px-frame'}>
+				{m.text}
+			</p>
 		{:else}
 			<p class="empty">說點什麼，或先看看四周。</p>
 		{/each}
 		{#if session.pending}
-			<p class="bub soul thinking">靈魂正在思考⋯⋯</p>
+			<p class="bub soul thinking ut-px-frame">靈魂正在思考⋯⋯</p>
 		{/if}
 	</div>
 {/if}
@@ -63,13 +67,22 @@
 <style>
 	.bar {
 		position: absolute;
-		left: var(--ut-pad);
-		right: var(--ut-pad);
+		left: 16px;
+		right: 16px;
 		top: 46%;
 		display: flex;
 		align-items: center;
 		gap: var(--ut-gap);
 		z-index: var(--ut-z-chrome);
+		/* 收合／展開時整條列要滑過去，不是瞬間跳 */
+		transition: top 0.22s ease;
+	}
+	/*
+		對話窗收起來時，這一列掉到輸入框上方——不然它會孤零零地浮在畫面中間，
+		底下卻是空的地圖。用 top 而不是切換 top/bottom，切換不同屬性沒辦法過渡。
+	*/
+	.bar.down {
+		top: calc(100% - 104px);
 	}
 	.bar.hidden {
 		display: none;
@@ -78,19 +91,20 @@
 		flex: 1;
 	}
 	.chip {
-		background: var(--ut-surface);
-		border: 1px solid var(--ut-line);
-		border-radius: var(--ut-r-pill);
 		height: var(--ut-h-sm);
-		display: flex;
-		align-items: center;
 		padding: 0 18px;
 		font-size: 14px;
+		/*
+			⚠️ 一定要寫死 line-height。預設 normal 由字型的 metrics 決定，
+			Cubic 11 的 normal 行高偏大，行框比內容框高，align-items:center
+			置中的是行框，字就浮上去了（2026-08-25 實機發現）。
+		*/
+		line-height: 1;
+		justify-content: center;
 	}
 	.sm {
 		width: var(--ut-h-sm);
 		height: var(--ut-h-sm);
-		border-radius: 50%;
 		justify-content: center;
 		flex: none;
 		cursor: pointer;
@@ -98,7 +112,6 @@
 	}
 	.back {
 		height: var(--ut-h-sm);
-		border-radius: var(--ut-r-pill);
 		padding: 0 14px 0 10px;
 		gap: 4px;
 		flex: none;
@@ -135,19 +148,19 @@
 	.bub {
 		margin: 0;
 		max-width: 78%;
-		border-radius: var(--ut-r-card);
-		padding: 8px 13px;
+		/* 氣泡是多行文字，要蓋掉框變體的 flex 置中 */
+		display: block;
+		padding: 8px 14px;
+		/* 圓角半徑 15，太窄的氣泡角會擠在一起 */
+		min-width: 34px;
 		font-size: 12.5px;
 		line-height: 1.7;
 	}
 	.me {
 		align-self: flex-end;
-		background: var(--ut-bubble-me);
 	}
 	.soul {
 		align-self: flex-start;
-		background: var(--ut-bubble-soul);
-		border: 1px solid var(--ut-bubble-soul-line);
 	}
 	.thinking {
 		color: var(--ut-ink-3);

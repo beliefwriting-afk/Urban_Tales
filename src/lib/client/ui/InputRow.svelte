@@ -33,7 +33,7 @@
 
 {#if session.mode === 'map'}
 	<div class="maprow">
-		<button class="ut-pill flat" onclick={() => session.lookAround()}>
+		<button class="ut-px-frame flat" onclick={() => session.lookAround()}>
 			<svg
 				width="14"
 				height="14"
@@ -45,7 +45,7 @@
 				<circle cx="11" cy="11" r="7" />
 				<path d="M20 20l-3.5-3.5" stroke-linecap="round" />
 			</svg>
-			<span>呼喚靈魂</span>
+			<span class="ut-txt">呼喚靈魂</span>
 		</button>
 	</div>
 {/if}
@@ -57,7 +57,7 @@
 {/if}
 
 <div class="row">
-	<div class="ut-pill field">
+	<div class="ut-px-frame field">
 		<input
 			type="text"
 			maxlength="500"
@@ -82,7 +82,7 @@
 		</button>
 	</div>
 	<button
-		class="ut-pill cam"
+		class="ut-px-frame cam"
 		onclick={() => session.toggleCamera()}
 		aria-label={session.mode === 'camera' ? '離開相機' : '相機'}
 		aria-pressed={session.mode === 'camera'}
@@ -116,7 +116,6 @@
 	.field {
 		flex: 1;
 		height: var(--ut-h-pill);
-		border-radius: var(--ut-r-pill);
 		padding: 0 8px 0 16px;
 		gap: 6px;
 	}
@@ -129,12 +128,18 @@
 		font: inherit;
 		font-size: 13px;
 		color: var(--ut-ink);
+		/* input 的文字也要跟著微調，否則跟旁邊的按鈕對不齊 */
+		transform: translateY(var(--ut-font-nudge));
 	}
 	.field input::placeholder {
 		color: var(--ut-ink-4);
 	}
-	.mic,
-	.cam {
+	/*
+		⚠️ 只有 .mic 能清空邊框。.cam 用的是 .ut-px-frame，而 Svelte 的 scoped CSS
+		會把這裡的 .cam 編譯成帶 scope 的選擇器，特異性高過全域的 .ut-px-frame——
+		寫 border: none 會把像素框整個蓋掉（2026-08-25 相機框憑空消失就是這樣）。
+	*/
+	.mic {
 		border: none;
 		background: none;
 		cursor: pointer;
@@ -151,9 +156,10 @@
 	.cam {
 		width: var(--ut-h-pill);
 		height: var(--ut-h-pill);
-		border: 1px solid var(--ut-line);
-		border-radius: var(--ut-r-sm);
-		background: var(--ut-surface);
+		justify-content: center;
+		cursor: pointer;
+		color: var(--ut-ink);
+		flex: none;
 	}
 	.maprow {
 		position: absolute;
@@ -168,13 +174,13 @@
 	}
 	.flat {
 		height: 36px;
-		border-radius: var(--ut-r-pill);
+		justify-content: center;
 		/* 圖示那一側的內距要比文字側短，否則視覺上會空一塊 */
 		padding: 0 16px 0 12px;
 		gap: 6px;
 		font: inherit;
 		font-size: 13px;
-		/* 上下靠 line-height:1 ＋ align-items:center（.ut-pill）；左右靠 justify-content */
+		/* 上下靠 align-items:center（.ut-px-frame）；左右靠 justify-content */
 		line-height: 1;
 		justify-content: center;
 		cursor: pointer;

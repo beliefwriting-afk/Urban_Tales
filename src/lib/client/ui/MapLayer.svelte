@@ -143,7 +143,6 @@
 		font-size: 9px;
 		color: var(--ut-ink-3);
 		background: rgba(255, 255, 255, 0.82);
-		border-radius: 3px;
 		padding: 0 3px;
 		white-space: nowrap;
 	}

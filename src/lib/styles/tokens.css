@@ -9,6 +9,26 @@
 	  只有一個地方可以改，就不會出現第二套。
 */
 
+/*
+	Cubic 11（俐方體 11 號）—— 11×11 開源繁中點陣體，SIL OFL 授權、可商用。
+	https://github.com/ACh-K/Cubic-11　授權文字在 static/fonts/OFL.txt
+
+	★ 已知取捨：點陣字型只在原生尺寸的整數倍（11 / 22 / 33 px）才銳利，
+	  中間值會被縮放到非整數格而糊掉。本專案目前的字級是 9～14px，
+	  也就是**現在這樣接上去，字不會是銳利的點陣**。
+	  這是刻意的：先單獨看字型本身的樣子，尺寸的事之後再一起處理，
+	  不要兩件事混在一起改（2026-08-25 已經栽過一次）。
+
+	檔案沒放進 static/fonts/ 時自動 fallback 回 Noto Sans TC，不會壞掉。
+*/
+@font-face {
+	font-family: 'Cubic 11';
+	src: url('/fonts/cubic-11.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
 :root {
 	/* ── 底層 ───────────────────────────────── */
 	--ut-bg-map: #efe7d6; /* 地圖狀態的畫布底 */
@@ -56,14 +76,22 @@
 	--ut-r-sm: 12px;
 	--ut-h-pill: 40px; /* 底部輸入列 */
 	--ut-h-top: 38px; /* 頂列與 ≡ */
-	--ut-h-sm: 30px; /* 聊天列的小圓鈕 */
+	/*
+		36 而不是 30：像素框的上下角區各 15px，元素剛好 30px 高時兩邊角直接接合，
+		左右端會尖成六角形。36 讓中間留 6px 直邊，端點才收得住。
+		⚠️ 這也是像素框的最小可用高度下限（2×15＝30）再加一點餘裕。
+	*/
+	--ut-h-sm: 36px; /* 聊天列的名牌與小按鈕 */
 
 	/* ── 間距 ───────────────────────────────── */
 	--ut-gap: 8px;
 	--ut-pad: 12px;
 
 	/* ── 字體 ───────────────────────────────── */
-	--ut-font: 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif;
+	--ut-font: 'Cubic 11', 'Noto Sans TC', 'Microsoft JhengHei', system-ui, sans-serif;
+
+	/* Cubic 11 的視覺置中微調量，見底下 .ut-txt。換字型就要重調這個值 */
+	--ut-font-nudge: 2px;
 
 	/* ── 層序 ───────────────────────────────── */
 	/*
@@ -88,11 +116,101 @@
 	image-rendering: crisp-edges;
 }
 
-/* 白底圓角 pill —— 前身專案的 .pill，介面的基本單位 */
-.ut-pill {
+/*
+	像素邊框（九宮格 border-image）。
+
+	為什麼不能用 border-radius：那畫的是真圓弧，一定有反鋸齒，邊緣永遠是軟的。
+	這裡改鋪一張點陣圖——四角是像素階梯、四邊拉伸、中央填色。
+
+	★ 三個尺度要分清楚，改的時候別搞混：
+	    邏輯點陣 12×12 格，角的內縮序列 [3, 2, 1, 0, 0]   ← 決定「形狀」
+	    每格畫成 3 CSS px               ← 決定「顆粒有多粗」
+	    所以圖是 36×36，描邊 3px，角區 slice 15px
+	  SVG 的 viewBox 用邏輯格、width/height 用放大後的值——SVG 是向量，
+	  放大不會糊；改成用 12×12 的點陣圖再拉大就會糊掉。
+
+	★ 角的形狀是**手寫的內縮序列**，不是算數學圓。
+	  數學圓在這個解析度下某兩列之間會一次縮 2 格，那個落差看起來就是
+	  四角各多出一個方塊的尖角（2026-08-25 實機發現）。
+	  內縮序列每階固定差 1 格，就不會有這個問題。改形狀就改這個序列。
+	  ⚠️ 一格 1px 時形狀是對的，但在高 DPR 手機上細到看不出階梯，
+	     「像素感」出不來（2026-08-25 實機確認）。顆粒要夠粗才讀得出來。
+
+	★ 關鍵手法：border-image-width（15px）**大於** border-width（1px）。
+	  邊框在版面上只佔 1px，圖片卻往內溢出畫 15px。這樣才能用大半徑的角，
+	  又不吃掉版面——若老實寫 border-width: 15px，30px 高的按鈕內容區直接歸零。
+	  ⚠️ 元件的**寬高都不能小於 30px**，否則兩邊的角會互相擠壓變形。
+
+	★ 底色寫死在 data URI 裡，因為 SVG data URI 讀不到 CSS 變數。
+	  所以每種底色要一個變體。四個變體都在這裡，仍然只有一個地方要改。
+	  ⚠️ 用了 border-image-slice 的 fill，中央會被圖片填滿——
+	     background-color 蓋不過它，改底色一定要改這裡。
+	  ⚠️ 點陣是產生器算出來的。改半徑或放大倍率就整份重生，
+	     **不要手改 path**，四個角一定會有一角對不上。
+*/
+/* === PX_FRAME_BEGIN（由 tools/gen_px_frame.py 產生，不要手改）=== */
+
+/* 白底——按鈕、輸入框、頂列，介面的預設框 */
+.ut-px-frame {
 	display: flex;
 	align-items: center;
-	background: var(--ut-surface);
-	border: 1px solid var(--ut-line);
-	color: var(--ut-ink);
+	background: transparent;
+	/* ★ border 只佔 1px 版面，border-image-width 卻畫 10px——見上面的說明 */
+	border: 1px solid transparent;
+	border-image-source: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Cpath fill='%232b2620' d='M3 0h6v1H3zM2 1h1v1H2zM9 1h1v1H9zM1 2h1v1H1zM10 2h1v1H10zM0 3h1v1H0zM11 3h1v1H11zM0 4h1v1H0zM11 4h1v1H11zM0 5h1v1H0zM11 5h1v1H11zM0 6h1v1H0zM11 6h1v1H11zM0 7h1v1H0zM11 7h1v1H11zM0 8h1v1H0zM11 8h1v1H11zM1 9h1v1H1zM10 9h1v1H10zM2 10h1v1H2zM9 10h1v1H9zM3 11h6v1H3z'/%3E%3Cpath fill='%23ffffff' d='M3 1h6v1H3zM2 2h8v1H2zM1 3h10v1H1zM1 4h10v1H1zM1 5h10v1H1zM1 6h10v1H1zM1 7h10v1H1zM1 8h10v1H1zM2 9h8v1H2zM3 10h6v1H3z'/%3E%3C/svg%3E");
+	border-image-slice: 10 fill;
+	border-image-width: 10px;
+	border-image-repeat: stretch;
+}
+
+/* 玩家氣泡 */
+.ut-px-frame--me {
+	display: flex;
+	align-items: center;
+	background: transparent;
+	/* ★ border 只佔 1px 版面，border-image-width 卻畫 10px——見上面的說明 */
+	border: 1px solid transparent;
+	border-image-source: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Cpath fill='%232b2620' d='M3 0h6v1H3zM2 1h1v1H2zM9 1h1v1H9zM1 2h1v1H1zM10 2h1v1H10zM0 3h1v1H0zM11 3h1v1H11zM0 4h1v1H0zM11 4h1v1H11zM0 5h1v1H0zM11 5h1v1H11zM0 6h1v1H0zM11 6h1v1H11zM0 7h1v1H0zM11 7h1v1H11zM0 8h1v1H0zM11 8h1v1H11zM1 9h1v1H1zM10 9h1v1H10zM2 10h1v1H2zM9 10h1v1H9zM3 11h6v1H3z'/%3E%3Cpath fill='%23e5decc' d='M3 1h6v1H3zM2 2h8v1H2zM1 3h10v1H1zM1 4h10v1H1zM1 5h10v1H1zM1 6h10v1H1zM1 7h10v1H1zM1 8h10v1H1zM2 9h8v1H2zM3 10h6v1H3z'/%3E%3C/svg%3E");
+	border-image-slice: 10 fill;
+	border-image-width: 10px;
+	border-image-repeat: stretch;
+}
+
+/* 浮空視窗、名牌 */
+.ut-px-frame--win {
+	display: flex;
+	align-items: center;
+	background: transparent;
+	/* ★ border 只佔 1px 版面，border-image-width 卻畫 10px——見上面的說明 */
+	border: 1px solid transparent;
+	border-image-source: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Cpath fill='%232b2620' d='M3 0h6v1H3zM2 1h1v1H2zM9 1h1v1H9zM1 2h1v1H1zM10 2h1v1H10zM0 3h1v1H0zM11 3h1v1H11zM0 4h1v1H0zM11 4h1v1H11zM0 5h1v1H0zM11 5h1v1H11zM0 6h1v1H0zM11 6h1v1H11zM0 7h1v1H0zM11 7h1v1H11zM0 8h1v1H0zM11 8h1v1H11zM1 9h1v1H1zM10 9h1v1H10zM2 10h1v1H2zM9 10h1v1H9zM3 11h6v1H3z'/%3E%3Cpath fill='%23fbf7ee' d='M3 1h6v1H3zM2 2h8v1H2zM1 3h10v1H1zM1 4h10v1H1zM1 5h10v1H1zM1 6h10v1H1zM1 7h10v1H1zM1 8h10v1H1zM2 9h8v1H2zM3 10h6v1H3z'/%3E%3C/svg%3E");
+	border-image-slice: 10 fill;
+	border-image-width: 10px;
+	border-image-repeat: stretch;
+}
+
+/* Toast——深底，描邊只比底色深一階 */
+.ut-px-frame--dark {
+	display: flex;
+	align-items: center;
+	background: transparent;
+	/* ★ border 只佔 1px 版面，border-image-width 卻畫 10px——見上面的說明 */
+	border: 1px solid transparent;
+	border-image-source: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Cpath fill='%2315120f' d='M3 0h6v1H3zM2 1h1v1H2zM9 1h1v1H9zM1 2h1v1H1zM10 2h1v1H10zM0 3h1v1H0zM11 3h1v1H11zM0 4h1v1H0zM11 4h1v1H11zM0 5h1v1H0zM11 5h1v1H11zM0 6h1v1H0zM11 6h1v1H11zM0 7h1v1H0zM11 7h1v1H11zM0 8h1v1H0zM11 8h1v1H11zM1 9h1v1H1zM10 9h1v1H10zM2 10h1v1H2zM9 10h1v1H9zM3 11h6v1H3z'/%3E%3Cpath fill='%232b2823' d='M3 1h6v1H3zM2 2h8v1H2zM1 3h10v1H1zM1 4h10v1H1zM1 5h10v1H1zM1 6h10v1H1zM1 7h10v1H1zM1 8h10v1H1zM2 9h8v1H2zM3 10h6v1H3z'/%3E%3C/svg%3E");
+	border-image-slice: 10 fill;
+	border-image-width: 10px;
+	border-image-repeat: stretch;
+}
+
+/* === PX_FRAME_END === */
+
+/*
+	Cubic 11 的字身在 em box 裡偏上（點陣字型的 ascent／descent 不對稱），
+	flex 置中對齊的是「行框」不是「字」，所以看起來會浮在上面。
+	這個微調量把字往下推回視覺中心。★ 只套在文字上，不要套在圖示上——
+	圖示是 SVG，本來就對齊 viewBox 中心，一起推就換它歪了。
+*/
+.ut-txt {
+	display: inline-block;
+	transform: translateY(var(--ut-font-nudge));
 }

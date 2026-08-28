@@ -23,9 +23,9 @@
 </script>
 
 {#if session.openWindow}
-	<section class="win">
+	<section class="win ut-px-frame--win">
 		<header>
-			<span class="title">{TITLES[session.openWindow]}</span>
+			<span class="title ut-txt">{TITLES[session.openWindow]}</span>
 			<button onclick={() => (session.openWindow = null)} aria-label="關閉">✕</button>
 		</header>
 
@@ -53,11 +53,10 @@
 		right: 54px;
 		top: calc(env(safe-area-inset-top, 0px) + 62px);
 		bottom: calc(env(safe-area-inset-bottom, 0px) + 68px);
-		background: var(--ut-surface-2);
-		border: 1px solid var(--ut-line);
-		border-radius: var(--ut-r-card);
+		/* 蓋掉框變體的 flex 置中——視窗是上下堆疊的 */
 		display: flex;
 		flex-direction: column;
+		align-items: stretch;
 		z-index: var(--ut-z-window);
 		overflow: hidden;
 	}
@@ -66,7 +65,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0 14px;
+		padding: 0 16px;
 		border-bottom: 1px solid var(--ut-line-soft);
 		flex: none;
 	}
@@ -85,7 +84,7 @@
 	.body {
 		flex: 1;
 		overflow-y: auto;
-		padding: 12px 14px;
+		padding: 12px 16px 16px;
 	}
 	.hint {
 		margin: 0 0 12px;
@@ -100,8 +99,7 @@
 	}
 	.card {
 		aspect-ratio: 3 / 4;
-		border: 1px dashed var(--ut-line);
-		border-radius: 10px;
+		border: 2px dashed var(--ut-line);
 		background: rgba(0, 0, 0, 0.02);
 		display: flex;
 		align-items: center;
