@@ -60,7 +60,11 @@
 			<button
 				class="ut-px-frame mi"
 				class:on={session.openWindow === item.key}
-				onclick={() => (session.openWindow = session.openWindow === item.key ? null : item.key)}
+				onclick={() => {
+					// 切到別的視窗時，聊天的第二層要退回清單，否則下次開會停在舊的對話裡
+					session.openThread = null;
+					session.openWindow = session.openWindow === item.key ? null : item.key;
+				}}
 				aria-label={item.label}
 			>
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">

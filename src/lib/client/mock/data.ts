@@ -106,6 +106,60 @@ export const WALK_PATH: readonly { x: number; y: number }[] = [
 ] as const;
 
 /**
+ * 成就卡 —— 13 張：相遇 5 ＋ 任務 5 ＋ 劇情 3（CONTEXT 核心設計第 6 條）。
+ *
+ * ⚠️ 方陣**不分區**，順序照類別自然落位（相遇→任務→劇情），劇情卡自然排在最後。
+ *   這是前身專案 2026-08-18 拍板的，在本專案仍然成立。
+ *
+ * ⚠️ 名稱是結構性的（「相遇 · 西門紅樓」），caption 一律標明是佔位——
+ *   卡面文案也算內容，要逐字審，這裡不代寫。
+ */
+export type CardKind = 'encounter' | 'task' | 'arc';
+
+export type Card = {
+	id: string;
+	kind: CardKind;
+	/** 劇情卡跨站，所以可以是 null */
+	siteId: SiteId | null;
+	name: string;
+	caption: string;
+};
+
+const KIND_LABEL: Record<CardKind, string> = {
+	encounter: '相遇',
+	task: '任務',
+	arc: '劇情'
+};
+
+export function kindLabel(k: CardKind): string {
+	return KIND_LABEL[k];
+}
+
+export const CARDS: readonly Card[] = [
+	...SITES.map((s): Card => ({
+		id: `encounter-${s.id}`,
+		kind: 'encounter',
+		siteId: s.id,
+		name: `相遇 · ${s.name}`,
+		caption: '（佔位）第一次召喚出這個地方的靈魂時取得。正式文案要逐字審。'
+	})),
+	...SITES.map((s): Card => ({
+		id: `task-${s.id}`,
+		kind: 'task',
+		siteId: s.id,
+		name: `留影 · ${s.name}`,
+		caption: '（佔位）在這裡拍下一張你覺得最美的照片時取得。照片不上傳、不入卡面。'
+	})),
+	...[1, 2, 3].map((n): Card => ({
+		id: `arc-${n}`,
+		kind: 'arc',
+		siteId: null,
+		name: `劇情 · 第 ${n} 章`,
+		caption: '（佔位）萬華劇情線的章節卡。西門紅樓 → 龍山寺 → 剝皮寮，線性解鎖。'
+	}))
+] as const;
+
+/**
  * ⚠️ 佔位回應，不是台詞。
  *
  * 每一則都標明自己是佔位，理由見檔頭。介面要看的是「氣泡長怎樣、

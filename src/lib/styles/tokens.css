@@ -11,7 +11,7 @@
 
 /*
 	Cubic 11（俐方體 11 號）—— 11×11 開源繁中點陣體，SIL OFL 授權、可商用。
-	https://github.com/ACh-K/Cubic-11　授權文字在 static/fonts/OFL.txt
+	https://github.com/ACh-K/Cubic-11  授權文字在 static/fonts/OFL.txt
 
 	★ 已知取捨：點陣字型只在原生尺寸的整數倍（11 / 22 / 33 px）才銳利，
 	  中間值會被縮放到非整數格而糊掉。本專案目前的字級是 9～14px，
@@ -27,6 +27,17 @@
 	font-weight: 400;
 	font-style: normal;
 	font-display: swap;
+}
+
+/*
+	★ 全域 border-box。沒有這一條，width: 100% 算的是內容寬度，
+	  再加上 padding 與 border 就會撐出容器外（2026-08-28 設定裡的密語框就是這樣）。
+	  這是版面計算的前提，不是樣式偏好。
+*/
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
 }
 
 :root {

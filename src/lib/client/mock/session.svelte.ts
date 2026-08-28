@@ -12,7 +12,7 @@
  *   class 裡的 get 就是 Python 的 @property，用法一模一樣。
  */
 
-import { MAP_WIDTH_M, PLACEHOLDER_REPLIES, SITES, WALK_PATH, type SiteId } from './data';
+import { CARDS, MAP_WIDTH_M, PLACEHOLDER_REPLIES, SITES, WALK_PATH, type SiteId } from './data';
 
 export type Mode = 'map' | 'chat' | 'camera';
 
@@ -57,10 +57,45 @@ class Session {
 	activeSiteId = $state<SiteId | null>(null);
 	messages = $state<Message[]>([]);
 
+	/**
+	 * 各靈魂的對話歷史。離開時存進來，再進去時接著聊。
+	 *
+	 * ★ 用物件不用 Map：Svelte 5 的 $state 不會追蹤 Map 內部的變動，
+	 *   要嘛換 SvelteMap、要嘛整個換掉。物件配上展開語法最單純。
+	 *   正式版這份資料在後端（SDD §3.2 的 chat_turns 表）。
+	 */
+	history = $state<Partial<Record<SiteId, Message[]>>>({});
+
+	/** 召喚過的靈魂。收藏的相遇卡靠它解鎖 */
+	visited = $state<SiteId[]>([]);
+
+	/**
+	 * 展示模式（SDD §5.4／T3）：忽略距離判定，任何召喚點都進得去。
+	 * 作品集的觀眾不會跑到萬華，沒有這個就沒人看得到成品。
+	 */
+	demoMode = $state(false);
+
+	/**
+	 * 背景音樂。目前只有狀態沒有聲音——音檔還沒有，先讓介面就位。
+	 * 音量存 0–100（整數），實際播放時再換算成 0–1 的 gain。
+	 */
+	musicOn = $state(true);
+	musicVolume = $state(70);
+
+	/** 訪客身分。正式版由後端發，這裡固定值 */
+	readonly guestId = '旅人 #8F2C';
+	readonly createdAt = '2026.08.28 起';
+
 	/** 對話窗是否展開。收起來才看得到底下的地圖 */
 	panelOpen = $state(true);
 	menuOpen = $state(false);
 	openWindow = $state<'log' | 'cards' | 'settings' | null>(null);
+
+	/**
+	 * 聊天視窗第二層開著的是哪個靈魂。null ＝ 停在第一層清單。
+	 * ★ 放在這裡而不是元件內：外框的返回鍵要讀它，放元件裡外框拿不到。
+	 */
+	openThread = $state<SiteId | null>(null);
 	toast = $state<string | null>(null);
 
 	/**
@@ -100,8 +135,9 @@ class Session {
 				x: s.x,
 				y: s.y,
 				distanceM,
-				sensed: distanceM <= s.sensingM,
-				reachable: distanceM <= s.summonM,
+				sensed: this.demoMode || distanceM <= s.sensingM,
+				// 展示模式下距離判定整個略過——SDD §5.4 的用意就是讓沒到現場的人也看得到
+				reachable: this.demoMode || distanceM <= s.summonM,
 				confirmed: s.confirmed
 			};
 		});
@@ -123,7 +159,37 @@ class Session {
 	 */
 	toggleMenu() {
 		this.menuOpen = !this.menuOpen;
-		if (!this.menuOpen) this.openWindow = null;
+		if (!this.menuOpen) this.closeWindow();
+	}
+
+	closeWindow() {
+		this.openWindow = null;
+		this.openThread = null;
+	}
+
+	/** 聊過的靈魂（有訊息的才算），聊天視窗的第一層清單用 */
+	get threads() {
+		return SITES.filter((s) => (this.history[s.id]?.length ?? 0) > 0).map((s) => {
+			const msgs = this.history[s.id] ?? [];
+			return {
+				id: s.id,
+				name: s.name,
+				count: msgs.length,
+				last: msgs[msgs.length - 1]?.text ?? ''
+			};
+		});
+	}
+
+	/**
+	 * 收藏的解鎖狀態。
+	 * 展示用規則：召喚過就解鎖那一站的相遇卡；任務卡與劇情卡先固定鎖著
+	 * （任務要等 P0-3 的相機、劇情要等 P3）。
+	 */
+	get cards() {
+		return CARDS.map((c) => ({
+			...c,
+			unlocked: c.kind === 'encounter' && c.siteId !== null && this.visited.includes(c.siteId)
+		}));
 	}
 
 	showToast(text: string) {
@@ -149,10 +215,15 @@ class Session {
 		this.panelOpen = true;
 		this.menuOpen = false;
 		this.openWindow = null;
-		this.messages = [];
+		this.messages = this.history[id] ?? [];
+		if (!this.visited.includes(id)) this.visited = [...this.visited, id];
 	}
 
 	leave() {
+		// 先存起來再清空，否則聊天紀錄永遠是空的
+		if (this.activeSiteId && this.messages.length > 0) {
+			this.history = { ...this.history, [this.activeSiteId]: this.messages };
+		}
 		this.mode = 'map';
 		this.activeSiteId = null;
 		this.messages = [];
