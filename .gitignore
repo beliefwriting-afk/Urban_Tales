@@ -27,3 +27,6 @@ __pycache__/
 *.py[cod]
 tools/.venv/
 tools/out/
+tools/map/.venv/
+tools/map/data/
+tools/map/out/

@@ -1,0 +1,51 @@
+{
+  "bbox": {
+    "west": 121.455,
+    "east": 121.668,
+    "south": 24.958,
+    "north": 25.212
+  },
+  "merc": {
+    "west": 13520308.754297042,
+    "east": 13544019.80583601,
+    "south": 2870586.751715839,
+    "north": 2901806.5970081263
+  },
+  "earthRadius": 6378137.0,
+  "centerLat": 25.085,
+  "tileSize": 256,
+  "levels": {
+    "near": {
+      "groundMetresPerPixel": 4.0,
+      "mercMetresPerPixel": 4.416571836827648,
+      "widthPx": 5369,
+      "heightPx": 7069,
+      "tilesX": 21,
+      "tilesY": 28
+    },
+    "far": {
+      "groundMetresPerPixel": 16.0,
+      "mercMetresPerPixel": 17.666287347310593,
+      "widthPx": 1342,
+      "heightPx": 1767,
+      "tilesX": 6,
+      "tilesY": 7
+    }
+  },
+  "landmarks": {
+    "ximen_red_house": {
+      "lon": 121.5069,
+      "lat": 25.0421
+    },
+    "longshan_temple": {
+      "lon": 121.4997,
+      "lat": 25.0372
+    },
+    "bopiliao": {
+      "lon": 121.499,
+      "lat": 25.0359
+    }
+  },
+  "attribution": "© OpenStreetMap contributors",
+  "license": "ODbL 1.0"
+}

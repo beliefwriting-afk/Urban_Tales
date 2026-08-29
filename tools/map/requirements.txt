@@ -1,0 +1,23 @@
+# 地圖工具的相依套件。離線工具專用，不進 runtime、不進 package.json。
+#
+# osmium  —— libosmium 的 Python 綁定，讀 .osm.pbf。
+#            ★ 刻意不用 pyrosm：它最後一版是 2023 年，且依賴 geopandas + GDAL，
+#              在 Windows 上裝不起來是常見災情（pyrosm issue #153）。
+#              osmium 有現成 wheel，pip install 就有，不需要編譯器、不需要管理員權限。
+#            ✔ 已確認 4.3.1 有 cp313 / cp314 的 win_amd64 wheel。
+osmium>=4.3,<5
+
+# Pillow —— 光柵化。★ 關鍵理由：ImageDraw 預設**不做反鋸齒**，
+#            這正是像素風要的。matplotlib 反而會很貼心地幫你把邊糊掉。
+#            ⚠️ 上限別訂成 <12：最新的 12.3.0 才有 cp313 wheel，
+#              擋掉它會讓 pip 退回舊版去找，反而可能要編譯。
+Pillow>=10,<13
+
+# numpy —— 步驟 2 的幾何快取用。存成 .npz 壓縮整數陣列，
+#          讓步驟 3 的美術調整可以「秒級重畫」，不用每次重讀 311 MB 的 PBF。
+numpy>=1.26
+
+# scipy —— 步驟 3 的街廓填色要用 ndimage.label 找「道路圍出的封閉區域」。
+#          只用到這一個函式，但自己寫連通區域標記在 3800 萬像素上會慢到不能用。
+#          ✔ 已確認 1.18.1 有 cp313 的 win_amd64 wheel。
+scipy>=1.11
