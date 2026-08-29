@@ -5,32 +5,20 @@
  *   呼叫端（/api/presence）拿到結果後，座標就只存在於那個函式的區域變數，
  *   用完即丟：不寫 DB、不寫 log（企劃書 §7、§8.8）。
  *
- * 給 Python 背景的對照：這一份就像你會放進 utils.py 的東西，
- * 邏輯密集、錯了很難從畫面看出來 —— 所以它有單元測試（geo.spec.ts）。
- */
-
-const EARTH_RADIUS_M = 6_371_000;
-
-const toRad = (deg: number): number => (deg * Math.PI) / 180;
-
-export type LatLng = { lat: number; lng: number };
-
-/**
- * 兩點間的大圓距離（公尺）。
+ * ★ 2026-08-28：`haversine` 與 `LatLng` 搬到 `$lib/shared/geo`，這裡改成轉出。
+ *   原因是前端地圖也要算距離，而 SvelteKit 會擋掉前端 import `$lib/server/*`。
+ *   複製一份到前端會讓兩邊漂移，那是最難查的一種 bug。
+ *   **`resolvePresence` 刻意留在伺服器端**——前端不該有能力自己宣告「我到了」。
  *
- * 用 haversine 而不是平面近似：台北的緯度下平面近似誤差雖小，
- * 但判定半徑最小到 20 公尺，不值得為了省幾個三角函式引入誤差來源。
+ * 給 Python 背景的對照：
+ *   下面那行 `export { haversine }` 等同 Python 的 `from .shared import haversine`
+ *   之後再放進 `__all__`——原本 import 這個檔的人不必改。
  */
-export function haversine(a: LatLng, b: LatLng): number {
-	const dLat = toRad(b.lat - a.lat);
-	const dLng = toRad(b.lng - a.lng);
-	const lat1 = toRad(a.lat);
-	const lat2 = toRad(b.lat);
 
-	const h = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+import { haversine, type LatLng } from '$lib/shared/geo';
 
-	return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
-}
+export { haversine };
+export type { LatLng };
 
 export type SiteGeo = {
 	id: string;

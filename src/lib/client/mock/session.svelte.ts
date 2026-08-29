@@ -12,7 +12,8 @@
  *   class 裡的 get 就是 Python 的 @property，用法一模一樣。
  */
 
-import { CARDS, MAP_WIDTH_M, PLACEHOLDER_REPLIES, SITES, WALK_PATH, type SiteId } from './data';
+import { haversine, type LatLng } from '$lib/shared/geo';
+import { CARDS, PLACEHOLDER_REPLIES, SITES, WALK_PATH, type SiteId } from './data';
 
 export type Mode = 'map' | 'chat' | 'camera';
 
@@ -26,25 +27,31 @@ export type Message = {
 export type SiteState = {
 	id: SiteId;
 	name: string;
-	x: number;
-	y: number;
+	/** 真實座標。地圖圖層用它算圖釘要畫在哪 */
+	lat: number;
+	lng: number;
 	distanceM: number;
 	/** 進了感應範圍：畫漣漪，告訴玩家這裡有東西 */
 	sensed: boolean;
 	/** 進了召喚範圍：點得動。對應 SDD §5.5 的到場判定 */
 	reachable: boolean;
-	confirmed: boolean;
 };
 
-/** 沿 WALK_PATH 線性插值。t 為 0..1 */
-function walkAt(t: number): { x: number; y: number } {
+/**
+ * 沿 WALK_PATH 線性插值。t 為 0..1。
+ *
+ * 直接對經緯度做線性內插：路徑總長不到一公里，這個尺度下
+ * 「經緯度直線」與「地表大圓」的差距遠小於一個像素，不值得引入球面內插。
+ * 真正的距離判定仍然走 haversine，那裡不能近似。
+ */
+function walkAt(t: number): LatLng {
 	const segs = WALK_PATH.length - 1;
 	const pos = Math.min(Math.max(t, 0), 1) * segs;
 	const i = Math.min(Math.floor(pos), segs - 1);
 	const f = pos - i;
 	const a = WALK_PATH[i];
 	const b = WALK_PATH[i + 1];
-	return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+	return { lat: a.lat + (b.lat - a.lat) * f, lng: a.lng + (b.lng - a.lng) * f };
 }
 
 class Session {
@@ -118,27 +125,50 @@ class Session {
 	#toastTimer: ReturnType<typeof setTimeout> | null = null;
 	#pulseTimer: ReturnType<typeof setTimeout> | null = null;
 
-	get playerPos() {
-		return walkAt(this.walk / 100);
+	/**
+	 * 展示模式的自訂位置。SDD §5.4／CONTEXT 核心設計第 1 條：
+	 * 「另設展示模式（自訂位置），因為作品集的觀眾不會跑到萬華去」。
+	 * null ＝ 沿 WALK_PATH 走，由滑桿決定。
+	 */
+	posOverride = $state<LatLng | null>(null);
+
+	get playerPos(): LatLng {
+		return this.posOverride ?? walkAt(this.walk / 100);
+	}
+
+	/**
+	 * 把玩家放到指定座標。**只有展示模式下有效**——
+	 * 一般模式下讓玩家自己指定位置，等於推翻核心設計第 1 條「硬到場」。
+	 */
+	placeAt(p: LatLng) {
+		if (!this.demoMode) {
+			this.showToast('要先在設定裡開啟展示模式，才能自訂位置');
+			return;
+		}
+		this.posOverride = { lat: p.lat, lng: p.lng };
+	}
+
+	/** 回到沿 WALK_PATH 的模擬位置。拖動滑桿時要呼叫，否則滑桿會看起來壞掉 */
+	clearPlacement() {
+		this.posOverride = null;
 	}
 
 	/** 每個景點的即時狀態。地圖圖層直接畫這個陣列 */
 	get sites(): SiteState[] {
 		const p = this.playerPos;
 		return SITES.map((s) => {
-			const dx = (s.x - p.x) * MAP_WIDTH_M;
-			const dy = (s.y - p.y) * MAP_WIDTH_M;
-			const distanceM = Math.round(Math.hypot(dx, dy));
+			// 真實的大圓距離。與伺服器端 resolvePresence 用的是同一個函式，
+			// 所以畫面上顯示的公尺數跟後端判定的公尺數不會漂移。
+			const distanceM = Math.round(haversine(p, { lat: s.lat, lng: s.lng }));
 			return {
 				id: s.id,
 				name: s.name,
-				x: s.x,
-				y: s.y,
+				lat: s.lat,
+				lng: s.lng,
 				distanceM,
 				sensed: this.demoMode || distanceM <= s.sensingM,
 				// 展示模式下距離判定整個略過——SDD §5.4 的用意就是讓沒到現場的人也看得到
-				reachable: this.demoMode || distanceM <= s.summonM,
-				confirmed: s.confirmed
+				reachable: this.demoMode || distanceM <= s.summonM
 			};
 		});
 	}

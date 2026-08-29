@@ -11,6 +11,7 @@
 	 * 地圖狀態下輸入框是 readonly——還沒選定要跟誰說話，點它不該叫出鍵盤。
 	 */
 	import { session } from '$lib/client/mock/session.svelte';
+	import { mapView } from './mapView.svelte';
 
 	let draft = $state('');
 
@@ -33,6 +34,28 @@
 
 {#if session.mode === 'map'}
 	<div class="maprow">
+		<!--
+			★ 這顆放在 maprow 裡面，不是自己絕對定位：
+			  maprow 已經是靠右的 flex 列，插在第一個就自動排在「呼喚靈魂」左邊，
+			  不用去算「呼喚靈魂」有多寬。而且它跟著 maprow 一起只在地圖狀態出現。
+			狀態住在 mapView（不是這個元件），因為地圖層也要讀寫同一份。
+		-->
+		{#if mapView.camAnchor}
+			<button class="ut-px-frame flat" onclick={() => mapView.recenter()}>
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<circle cx="12" cy="12" r="3.5" />
+					<path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round" />
+				</svg>
+				<span class="ut-txt">回到我的位置</span>
+			</button>
+		{/if}
 		<button class="ut-px-frame flat" onclick={() => session.lookAround()}>
 			<svg
 				width="14"

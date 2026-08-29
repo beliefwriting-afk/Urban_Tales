@@ -84,15 +84,26 @@
 	</button>
 
 	{#if inCamera}
-		<input
-			class="zoom"
-			type="range"
-			min="0.5"
-			max="1.6"
-			step="0.01"
-			bind:value={scale}
-			aria-label="靈魂大小"
-		/>
+		<!--
+			縮放滑桿放在快門正下方，直的。
+			★ 為什麼在右側而不是左下：單手持機時大拇指在右邊，
+			  滑桿跟快門在同一條垂直線上，調完大小就能直接按快門，手不用換位置。
+			  這跟前身專案「快門放右側中央」是同一條理由的延伸（A.L. 2026-08-28）。
+			外面包一層 .zoom-slot 是因為 transform: rotate 不會改變版面盒——
+			直接旋轉 input 的話它的定位會很難算。包一層固定尺寸的槽再置中旋轉，
+			幾何就單純了。
+		-->
+		<div class="zoom-slot">
+			<input
+				class="zoom"
+				type="range"
+				min="0.5"
+				max="1.6"
+				step="0.01"
+				bind:value={scale}
+				aria-label="靈魂大小"
+			/>
+		</div>
 	{/if}
 {/if}
 
@@ -129,12 +140,29 @@
 		height: auto;
 		filter: drop-shadow(0 4px 10px rgba(43, 40, 35, 0.22));
 	}
-	.zoom {
+	.zoom-slot {
 		position: absolute;
-		left: 16px;
-		bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
-		width: 42%;
-		accent-color: var(--ut-accent);
+		/* 跟快門同一條右邊界、同寬，槽置中之後滑桿就跟快門同一條垂直線 */
+		right: 18px;
+		/* 快門中心在 40%、半徑 29px，再留 12px 間距 */
+		top: calc(40% + 41px);
+		width: 58px;
+		height: 150px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		z-index: var(--ut-z-chrome);
+		/* 只有滑桿本身收事件，槽的空白處讓點擊穿過去給底下的立繪 */
+		pointer-events: none;
+	}
+	.zoom {
+		/* 旋轉前的長度，旋轉後變成高度 */
+		width: 150px;
+		/* -90 度：min 轉到下面、max 轉到上面，「往上＝變大」符合直覺 */
+		transform: rotate(-90deg);
+		accent-color: var(--ut-accent);
+		pointer-events: auto;
+		/* 地圖層設了 touch-action: none，這裡也要，否則拖滑桿會被當成捲動 */
+		touch-action: none;
 	}
 </style>

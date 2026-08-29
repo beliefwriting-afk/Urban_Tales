@@ -24,7 +24,17 @@
 
 <svelte:head>
 	<title>城市物語 Urban Tales</title>
-	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<!--
+		★ 關掉整頁縮放。這個介面全部是固定定位、沒有可捲動的長文，
+		  整頁縮放只會把版面弄亂（2026-08-28 實機確認）。縮放交給地圖自己處理，
+		  地圖層有離散的五階縮放，見 MapLayer.svelte。
+		⚠️ 取捨：這也擋掉了「放大看小字」這個無障礙手段。
+		  對這種全螢幕固定版面的應用是業界常態，但它確實是個取捨，不是白吃的午餐。
+	-->
+	<meta
+		name="viewport"
+		content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+	/>
 	<link
 		rel="stylesheet"
 		href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&display=swap"
@@ -34,13 +44,17 @@
 <div class="stage">
 	<div class="phone">
 		<div class="screen">
-			<!-- 相機狀態換掉背景；地圖仍在底下，退出相機就回來 -->
+			<!--
+				相機狀態換掉背景；地圖**仍然掛著**，只是被蓋住，退出相機就回來。
+				★ 2026-08-28 改成「蓋住」而不是「換掉」：原本用 {:else} 會讓 MapLayer
+				  在每次進出相機時整個卸載重掛，圖磚要重新解碼、狀態要重建。
+				  註解本來就寫著「地圖仍在底下」，但程式其實是換掉的——現在名實相符了。
+			-->
+			<MapLayer />
 			{#if session.mode === 'camera'}
 				<div class="cambg">
 					<p>相機畫面（P0-3 才接 getUserMedia）</p>
 				</div>
-			{:else}
-				<MapLayer />
 			{/if}
 
 			<SoulLayer />
@@ -63,6 +77,8 @@
 <style>
 	:global(body) {
 		margin: 0;
+		/* 擋掉下拉重新整理與橡皮筋回彈，否則往下拖地圖會變成刷新頁面 */
+		overscroll-behavior: none;
 		background: #f4f1ea;
 		font-family: var(--ut-font);
 		color: var(--ut-ink);
@@ -94,6 +110,8 @@
 	.cambg {
 		position: absolute;
 		inset: 0;
+		/* 蓋在地圖之上、靈魂立繪之下。地圖是 --ut-z-map: 1，立繪是 2 */
+		z-index: 1;
 		background: var(--ut-bg-cam);
 		display: flex;
 		align-items: flex-start;

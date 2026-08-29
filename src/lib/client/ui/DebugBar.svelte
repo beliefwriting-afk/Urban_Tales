@@ -11,7 +11,16 @@
 
 <div class="bar">
 	<label for="walk">你的位置</label>
-	<input id="walk" type="range" min="0" max="100" step="1" bind:value={session.walk} />
+	<!-- oninput 清掉展示模式的自訂位置：不清的話拖滑桿會沒反應，看起來像壞了 -->
+	<input
+		id="walk"
+		type="range"
+		min="0"
+		max="100"
+		step="1"
+		bind:value={session.walk}
+		oninput={() => session.clearPlacement()}
+	/>
 	<span class="read">
 		{#each session.sites.filter((s) => s.sensed) as s (s.id)}
 			<b>{s.name}</b> {s.distanceM}m{s.reachable ? '（可召喚）' : ''}&nbsp;
