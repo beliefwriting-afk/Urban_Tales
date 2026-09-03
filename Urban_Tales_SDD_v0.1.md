@@ -3,7 +3,7 @@
 > **版本**：v0.1（草稿）
 > **日期**：2026-08-24
 > **上游文件**：`Urban_Tales_企劃書_v0.2.md`（權威）、`CONTEXT.md`（入口）
-> **性質**：單人開發、手機網頁、Zeabur 部署
+> **性質**：單人開發、手機網頁、GCP 單機部署（2026-09-03 由 Zeabur 遷出）
 
 ---
 
@@ -44,8 +44,8 @@
 | A1 | 應用型態 | **單一 Node 服務（前後端同 repo 同容器）** | 單人專案，一個部署單位就是一個要照顧的東西 |
 | A2 | 前端框架 | **SvelteKit**【暫定】 | 最小執行期體積 ＋ server routes 直接當後端，金鑰不出瀏覽器 |
 | A3 | 內容儲存 | **Content-as-Code：內容進 Git，不做 CMS** | 內容要逐字審、要版本控制、只有一個作者 |
-| A4 | 執行期資料庫 | **PostgreSQL（Zeabur 託管）** | 只存玩家身分／進度／用量，資料量極小 |
-| A5 | AI 供應商 | **Zeabur AI Hub（HND1 東京節點）** | 已儲值；OpenAI 相容；東京節點對台灣延遲最低 |
+| A4 | 執行期資料庫 | **PostgreSQL（GCP VM 自架，只綁 loopback）** | 只存玩家身分／進度／用量，資料量極小；不對外開放 |
+| A5 | AI 供應商 | **Gemini（OpenAI 相容端點）** | 免費層；`ai/client.ts` 不必改，只換環境變數 |
 | A6 | 對話模型 | **`gemini-2.5-flash-lite`**【暫定】 | 首字延遲 0.46s、100 TPS、$0.10/$0.40 每百萬 token |
 | A7 | 到場判定 | **伺服器端判定，發「在場憑證」** | 同時解決防作弊與 AI 成本閘門 |
 | A8 | 相機 | **`getUserMedia` 即時疊層**，原生相機為降級路徑 | 「透過鏡頭構圖」是設計意圖，見附錄 C-1 |
@@ -71,23 +71,40 @@
 
 不另起 Express／Hono。理由同上：**一個部署單位**。
 
-#### 資料庫：PostgreSQL 16（Zeabur 託管）＋ Drizzle ORM
+#### 資料庫：PostgreSQL（GCP VM 自架）＋ Drizzle ORM
 
-**為什麼是 Postgres 而不是 SQLite**：容器磁碟在重新部署時會換掉，SQLite 需要掛載 volume 並自行處理備份。Zeabur 的託管 Postgres 是一鍵，備份是平台的事——這正是「任何需要持續有人維護的機制一律砍掉」（企劃書 §10.1）。
+**為什麼是 Postgres 而不是 SQLite**：schema 用到 `uuid`／`jsonb`／`bigserial`／`numeric`，SQLite 這四個都沒有，改用它等於重寫資料模型。而在單機部署下 Postgres 的安裝成本只是 `apt install` 一行。
+
+**【2026-09-03 修訂】原本的理由已不成立。** 舊版寫的是「容器磁碟重新部署會換掉，而託管 Postgres 的備份是平台的事」——搬到自架之後，**備份變成我們自己的事，而目前還沒有做**（見 `deploy/README.md` 的待辦）。這是這次搬家換來的代價，不是消失的問題。在有真實玩家之前可以接受，之後是第一優先。
+
+**為什麼只綁 loopback**：Zeabur 的託管 Postgres 掛在一個公開的 TCP 連接埠上，全世界都連得到，只靠密碼擋——那是我們遷出的理由之一。自架版本不開對外的面，開發機要連請走 SSH 通道。
 
 **為什麼是 Drizzle 而不是 Prisma**：Prisma 需要帶 query engine 二進位檔，容器變大、冷啟動變慢；Drizzle 是純 TypeScript，schema 即型別，產生的 SQL 可讀。單人專案不需要 Prisma 的那層抽象。
 
-#### AI：Zeabur AI Hub
+#### AI：Gemini（OpenAI 相容端點）
 
-| 項目 | 值 | 來源 |
-|---|---|---|
-| 端點 | `https://hnd1.aihub.zeabur.ai/v1`（東京） | 官方文件 |
-| 備用端點 | `https://sfo1.aihub.zeabur.ai/v1`（舊金山） | 官方文件 |
-| API 相容性 | **OpenAI 相容**，可直接用 `openai` npm 套件 | 官方文件 |
-| 計費 | **點數預付制**，依模型與 token 數扣點 | 官方文件 |
-| 金鑰 | Dashboard 建立，**只顯示一次** | 官方文件 |
+| 項目 | 值 |
+|---|---|
+| 端點 | `https://generativelanguage.googleapis.com/v1beta/openai/` |
+| API 相容性 | **OpenAI 相容**，可直接用 `openai` npm 套件 |
+| 計費 | 免費層有每日額度；超過才計費 |
+| 金鑰 | aistudio.google.com 產生 |
 
-**選 HND1 東京**：台灣到東京往返約 40–60ms，到舊金山約 130–180ms。對話是逐字回應的即時體驗，這個差距玩家感覺得到。
+**【2026-09-03 改版】原本是 Zeabur AI Hub 的東京節點。** 搬離 Zeabur 之後改為直連 Gemini。
+`ai/client.ts` **一行程式碼都沒改**——它本來就是「OpenAI SDK ＋ 可設定的 baseURL」，換供應商只換環境變數的值。這是當初把它做成抽象層唯一的、也是真正兌現的好處。
+
+**★★★ 模型選擇：關鍵不是強弱，是預設 thinking level。★★★**
+
+君和在 Roku 專案的 GCP VM 上實測（2026-09-01，真實 system prompt，中位數）：
+
+| 模型 | 預設 thinking | 延遲中位數 | 範圍 |
+|---|---|---|---|
+| `gemini-3.7-flash` | medium | **8.05 秒** | 4.71–13.91 |
+| `gemini-3.5-flash-lite` | minimal | **0.74 秒** | 0.58–0.98 |
+
+**§6.5 的逾時是 8 秒，而 medium 思考的中位數就是 8.05 秒。** 拿它當主要模型，一半以上的對話會逾時走保底台詞——而且開發時很可能剛好都落在 8 秒內，上線後才發現。所以 `AI_MODEL_PRIMARY` 必須是 flash-lite 那一級。**這不是省錢考量，是能不能用的問題。**
+
+而且我們比 LINE bot 更禁不起慢：玩家是站在廟口舉著手機等回覆的。
 
 **模型選型【暫定 T2】**：`gemini-2.5-flash-lite`
 
@@ -131,7 +148,7 @@
         │  座標          │  訊息 ＋ 在場憑證
         ▼                ▼                    ※照片永不離開裝置
 ┌──────────────────────────────────────────────────────────────────┐
-│              Node 服務（SvelteKit，Zeabur）                       │
+│      Node 服務（SvelteKit / adapter-node，GCP VM）                │
 │                                                                  │
 │  /api/presence      /api/chat         /api/progress              │
 │       │                  │                  │                    │
@@ -155,10 +172,12 @@
          │                                 │
          ▼                                 ▼
 ┌──────────────────┐          ┌─────────────────────────────┐
-│ PostgreSQL       │          │ Zeabur AI Hub (HND1 東京)    │
-│ 玩家/進度/用量    │          │ OpenAI 相容                  │
-│ ※不存任何座標     │          │ ※僅此路徑可呼叫              │
-└──────────────────┘          └─────────────────────────────┘
+│ PostgreSQL       │          │ Gemini API                   │
+│ 127.0.0.1:5432   │          │ OpenAI 相容端點              │
+│ 玩家/進度/用量    │          │ ※僅此路徑可呼叫              │
+│ ※不存任何座標     │          └─────────────────────────────┘
+│ ※不對外開放      │
+└──────────────────┘
 ```
 
 ### 1.4 核心資料流：一次完整的到訪
@@ -202,13 +221,19 @@
 ### 1.5 部署拓撲
 
 ```
-Zeabur Project: urban-tales
-├── Service: web        (Node 20, SvelteKit, 自動 HTTPS)
-├── Service: postgres   (託管 PostgreSQL 16)
-└── 外部依賴: hnd1.aihub.zeabur.ai
+GCP Compute Engine · e2-small · us-central1 · Ubuntu 24.04
+├── nginx          :443  ← 終結 TLS（Let's Encrypt，certbot 自動續約）
+├── node build     :3000 ← adapter-node，只綁 127.0.0.1，由 systemd 管
+└── PostgreSQL     :5432 ← 只綁 127.0.0.1，不對外
+外部依賴：Gemini API
+網域：tales.alcloud.us（Cloudflare，DNS only 灰色雲朵）
 ```
 
-**只有兩個服務。** 沒有 Redis、沒有物件儲存、沒有 CDN、沒有訊息佇列。理由：照片不上傳、內容在 repo、用量計數器放 Postgres——這三個決定各砍掉一個基礎設施。
+**一台機器，三個行程。** 沒有 Redis、沒有物件儲存、沒有 CDN、沒有訊息佇列。理由：照片不上傳、內容在 repo、用量計數器放 Postgres——這三個決定各砍掉一個基礎設施。
+
+**★ HTTPS 是硬需求，不是加分項。** `navigator.geolocation` 與 DeviceOrientation（羅盤）都只在安全情境下可用；沒有憑證，這個遊戲的核心機制就不能運作。
+
+部署細節見 `deploy/README.md`，一鍵腳本是 `deploy/bootstrap.sh`。
 
 ---
 
@@ -220,7 +245,7 @@ Zeabur Project: urban-tales
 
 作者只有一個人，沒有「非技術人員要編輯內容」的需求——**CMS 解決的是本專案不存在的問題**。
 
-**代價（接受）**：改一個錯字要重新部署。Zeabur 部署約 1–2 分鐘，可接受。
+**代價（接受）**：改一個錯字要重新部署（`git pull` → `npm run build` → `systemctl restart`，約 1–2 分鐘）。可接受。
 
 ### 2.2 目錄結構
 
@@ -279,7 +304,6 @@ export const SiteSchema = z.object({
   }),
 
   /** 在像素地圖上的位置（地圖圖片的像素座標） */
-  mapPos: z.object({ x: z.number(), y: z.number() }),
 
   /** 是否有劇情層（P3） */
   hasStory: z.boolean().default(false),
@@ -818,7 +842,9 @@ CI 跑 `eslint --max-warnings 0`，**違反即建置失敗**。
    無快取計算。代價是每輪多約 $0.0003，1,000 名玩家全破約 $116——仍在作品集
    規模可負擔的範圍，**所以全量注入的決定不變**。
 
-**【已驗 V1 ✅ 2026-08-25】Zeabur AI Hub 不回報 `cached_tokens`。**
+**【已驗 V1 ⚠️ 已作廢】2026-08-25 對 Zeabur AI Hub 實測：不回報 `cached_tokens`。**
+
+> ⚠️ **2026-09-03 搬到 Gemini 直連後，這一輪量測不再適用。** 下面的紀錄保留是為了留住方法與陷阱（特別是回應快取那一段），結論本身要重測。在重測完成前，成本一律按無快取單價計算——那是保守方向，所以可以先這樣走。
 
 以 `tools/p0_5_aihub_ping.py` 對 `gemini-2.5-flash-lite` 實測，相同 system 前綴
 （本專案真實的 `content/guardrails.yaml`）連打三次，回傳的 `usage` 一律是：
@@ -934,8 +960,8 @@ function pickPrompts(siteId, session): GuidedPrompt[] {
 import OpenAI from 'openai';
 
 const client = new OpenAI({
-  apiKey:  env.AIHUB_API_KEY,
-  baseURL: env.AIHUB_BASE_URL,      // https://hnd1.aihub.zeabur.ai/v1
+  apiKey:  env.AI_API_KEY,
+  baseURL: env.AI_BASE_URL,          // Gemini 的 OpenAI 相容端點
   timeout: 8_000,
   maxRetries: 0,                     // 重試由 speak() 控制，才能換模型
 });
@@ -947,9 +973,15 @@ export async function complete(opts: {
 }): Promise<{ text: string; usage: TokenUsage }> { /* ... */ }
 ```
 
-**模型與端點全部走環境變數**（`AIHUB_MODEL_PRIMARY`、`AIHUB_MODEL_FALLBACK`、`AIHUB_BASE_URL`），換模型不需要改程式碼、不需要重新建置。
+**模型與端點全部走環境變數**（`AI_MODEL_PRIMARY`、`AI_MODEL_FALLBACK`、`AI_BASE_URL`），換模型不需要改程式碼、不需要重新建置。
 
-**`timeout: 8_000` 已由實測背書（2026-08-25）**：`gemini-2.5-flash-lite` 的真實首次推論延遲量到 **0.79～1.28 秒**（`gemini-2.5-flash` 為 0.23 秒），距離 8 秒門檻有一個數量級的餘裕。**維持不動。** 量測方法與陷阱見 §6.3 末段（閘道層回應快取會造成假的低延遲）。
+> **變數名為什麼不叫 `AIHUB_*` 了**：第一版把供應商名字寫進變數名，2026-09-03 搬到 GCP 時就得改一輪——而程式邏輯一行沒變，改的全是名字。**供應商名字不該進變數名。**
+
+**⚠️ `timeout: 8_000` 的背書已經過期。** 2026-08-25 那次量的是 Zeabur AI Hub 的 `gemini-2.5-flash-lite`（0.79～1.28 秒），**換成 Gemini 直連後那個數字不算數了**。
+
+在 P0-5 重測完成之前，8 秒維持不動，但要知道它現在沒有實測背書。重測時**必須連模型一起量**——見上面 §1.2 的表：同一個端點下，選錯模型會讓中位數直接撞上這個逾時。
+
+量測陷阱見 §6.3 末段（相同請求可能命中回應快取，給出假的低延遲）。
 
 **串流【暫定 T6】：第一版不做串流。** 理由：`gemini-2.5-flash-lite` 首字延遲 0.46s、100 TPS，2–4 句（約 120 字 ≈ 180 tokens）約 1.8 秒完成。整段回傳搭配「靈魂正在思考」的動畫，體驗上與串流差異不大，但省掉 SSE 的連線管理、中斷處理、與行動網路下的重連邏輯。若實測感覺慢，再改（`complete()` 的介面已預留 `stream` 參數）。
 
@@ -1348,12 +1380,17 @@ await db.insert(usageGlobalDaily).values({...})
 
 **結論**：這是**作品集規模下完全可負擔**的成本。全域日上限 $2 對應約 **2,600 則訊息／日**（按無快取實測單價），遠超過作品集專案的實際流量。**即使護欄 token 被低估 2.75 倍、且快取完全不可用，結論依然成立**——這是這個成本模型最重要的性質：它不依賴任何樂觀假設。
 
-**Zeabur 平台成本**：Dev 方案 $5／月（有 14 天試用）足以跑一個 Node 服務 ＋ 一個 Postgres。**【待驗 V3】** 實際資源用量待部署後確認。
+**平台成本【2026-09-03 改版】**：GCP Compute Engine e2-small ＋ 20GB 平衡永久磁碟 ＋ 靜態 IP，約 **$18／月**（90 天約 $53）。新 Google 帳號送 $300／90 天，實際上是用額度在跑。
+
+> ⚠️ 這比 Zeabur 的 $5／月貴。換來的是：資料庫沒有對外的面、整台機器自己掌握、跟 Roku 專案同一套維運方式。**這是為了資安付的錢，不是效能。**
 
 **成本上的兩個保險**：
 
 1. **在場憑證（L0）讓成本與「真實到訪人次」掛鉤**，而不是與「網頁流量」掛鉤。這是最有效的一層——爬蟲、機器人、好奇點開就關的人，成本都是零。
-2. AI Hub 是**預付點數制**，儲值用完就停，**不會產生非預期帳單**。這對個人專案是重要的心理安全。
+2. **【2026-09-03 改版】原本靠 AI Hub 的預付點數制當硬性上限——搬到 Gemini 之後這道保險沒有了。**
+   Gemini 免費層超額後會計費（若專案綁了帳單帳戶），不會自己停。所以 §10.1 的**全域每日上限**
+   從「多一層保險」升格成**唯一的帳單防線**，它的正確性現在更重要了。
+   ⚠️ 另一個做法是在 GCP 的帳單頁面設預算警示，但那是**事後通知**不是事前阻擋，只能當第二層。
 
 ---
 
@@ -1363,10 +1400,10 @@ await db.insert(usageGlobalDaily).values({...})
 
 | 機密 | 存放 | 絕不 |
 |---|---|---|
-| `AIHUB_API_KEY` | Zeabur 環境變數 | 不進 repo、不進前端 bundle、不寫 log |
-| `SESSION_SECRET` | Zeabur 環境變數 | 同上 |
-| `DEMO_PASSPHRASE` | Zeabur 環境變數 | 同上 |
-| `GOOGLE_CLIENT_SECRET` | Zeabur 環境變數 | 同上 |
+| `AI_API_KEY` | `/etc/urban-tales/urban-tales.env`（640 root:服務帳號） | 不進 repo、不進前端 bundle、不寫 log |
+| `SESSION_SECRET` | 同上 | 同上。★ 在場憑證與展示模式的金鑰都是從它推導的（§5.3），換掉它三者同時失效 |
+| `DEMO_PASSPHRASE` | 同上 | 同上 |
+| `GOOGLE_CLIENT_SECRET` | 同上 | 同上 |
 
 **SvelteKit 的保護**：只有 `$env/static/public` 與 `PUBLIC_` 前綴的變數會進 client bundle。所有機密用 `$env/static/private`——**引用錯了建置就會失敗**，這是框架層的保險。
 
@@ -1417,7 +1454,7 @@ await db.insert(usageGlobalDaily).values({...})
 
 ### 12.2 需要的指標（只有這些）
 
-單人專案不需要觀測平台。用 Zeabur 的 log ＋ 一個 `/api/admin/stats`（密語保護）即可：
+單人專案不需要觀測平台。用 `journalctl -u urban-tales` ＋ 一個 `/api/admin/stats`（密語保護）即可：
 
 | 指標 | 從哪來 | 為什麼要 |
 |---|---|---|
@@ -1437,10 +1474,13 @@ await db.insert(usageGlobalDaily).values({...})
 
 ```bash
 # ── AI ─────────────────────────────
-AIHUB_API_KEY=             # ★ 只顯示一次，建立時就存好
-AIHUB_BASE_URL=https://hnd1.aihub.zeabur.ai/v1
-AIHUB_MODEL_PRIMARY=gemini-2.5-flash-lite
-AIHUB_MODEL_FALLBACK=gemini-2.5-flash
+# ★ 變數名不綁供應商：換一家只換值。
+AI_API_KEY=                # aistudio.google.com 產生
+AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+# ⚠️ 主要模型必須是 flash-lite 那一級 —— medium 思考的中位數 8.05 秒，
+#    而我們的逾時是 8 秒。理由見 §1.2。
+AI_MODEL_PRIMARY=gemini-3.5-flash-lite
+AI_MODEL_FALLBACK=gemini-3.7-flash
 
 # ── 用量 ───────────────────────────
 GLOBAL_DAILY_BUDGET_USD=2.00
@@ -1456,10 +1496,30 @@ GOOGLE_CLIENT_SECRET=      # P4
 # ── 展示模式 ────────────────────────
 DEMO_PASSPHRASE=
 
+# ── 網域 ───────────────────────────
+# ★ adapter-node 靠 ORIGIN 知道自己對外的網址。沒設的話它只看得到
+#   http://127.0.0.1:3000 —— 絕對網址與 OAuth 回呼都會錯。
+ORIGIN=https://tales.alcloud.us
+PUBLIC_SITE_URL=https://tales.alcloud.us
+
 # ── 其他 ───────────────────────────
-DATABASE_URL=              # Zeabur 自動注入
+DATABASE_URL=              # postgres://urban_tales:…@127.0.0.1:5432/urban_tales
 ENABLE_DEV_TOOLS=false     # 控制 /dev/* 路由
-PUBLIC_SITE_URL=https://urbantales.zeabur.app
+```
+
+**正式環境的位置**：`/etc/urban-tales/urban-tales.env`，權限 640、擁有者 `root:<服務帳號>`
+——只有 root 可寫、只有服務讀得到，同機的其他使用者看不到金鑰。由 systemd 的
+`EnvironmentFile` 載入，改完要 `sudo systemctl restart urban-tales`。
+
+⚠️ **同一個變數名不要出現兩次。** systemd 取「最後一次」出現的值——上面填了、下面留一行空的，
+會把填好的值蓋掉，而錯誤訊息完全指不到這裡。`bootstrap.sh` 有一道檢查會抓。
+（這是 Roku 專案 2026-08-31 實際踩過的坑。）
+
+**本機開發連資料庫走 SSH 通道**，不對外開 5432：
+
+```
+ssh -i <金鑰> -N -L 55432:127.0.0.1:5432 <帳號>@<VM IP>
+DATABASE_URL=postgres://urban_tales:<密碼>@127.0.0.1:55432/urban_tales
 ```
 
 ### 13.2 環境分離
@@ -1469,23 +1529,34 @@ PUBLIC_SITE_URL=https://urbantales.zeabur.app
 | **local** | 開發 | `ENABLE_DEV_TOOLS=true`；AI 可用 mock（回固定字串，不燒點數） |
 | **production** | 正式 | 全部關閉 dev 工具 |
 
-**【暫定 T11】不設 staging。** 理由：單人專案、無使用者資料風險、Zeabur 部署快。多一個環境是多一份要同步的設定。
+**【暫定 T11】不設 staging。** 理由：單人專案、無使用者資料風險、部署快。多一個環境是多一份要同步的設定。
 
-**本機開發的 AI mock**：`AIHUB_API_KEY` 未設定時，`complete()` 直接回傳固定字串。理由——開發期會反覆重整頁面，每次都真的呼叫 AI 是在燒點數換除錯。
+⚠️ **但目前連開發資料庫都沒有分開**——本機開發直接連正式庫。在有真實玩家之前可以接受，
+之後要另開一個 `urban_tales_dev`，而且不能再跑 `npm run smoke:api -- --purge`（會清 players 表）。
+
+**本機開發的 AI mock**：`AI_API_KEY` 未設定時，`complete()` 直接回傳固定字串。理由——開發期會反覆重整頁面，每次都真的呼叫 AI 是在燒額度換除錯。⚠️ 反過來說，**正式環境忘了填這個值，整個對話系統會安靜地變成假的**。
 
 ### 13.3 部署流程
 
-```
-git push → Zeabur 自動建置
-  1. npm ci
-  2. npm run content:check    ← ★ 內容驗證，不過就停
-  3. npm run lint             ← ★ 含 speak() 唯一出口檢查
-  4. npm run build
-  5. drizzle-kit migrate
-  6. node build
+**CI（GitHub Actions，每次 push）**：`content:check` → `lint` → `test:guard` → `check` → `test` → `build`。
+任何一步失敗都不給合併。**`content:check` 與 `lint` 是護欄的最後一道機械保險。**
+
+**部署（在 VM 上，手動）**：
+
+```bash
+cd ~/Urban_Tales
+git pull
+npm ci
+npm run build          # prebuild 會先跑 content:check
+npm run db:migrate     # ★ 用 migrate 不用 push
+sudo systemctl restart urban-tales
 ```
 
-**步驟 2、3 是護欄的最後一道機械保險。**
+首次佈署用 `bash deploy/bootstrap.sh <網域>`，它是冪等的，重跑不會弄壞既有設定。
+
+> **為什麼正式環境用 `db:migrate` 而不是 `db:push`**：`push` 是「比對現況直接改」，
+> 沒有留下任何紀錄；`migrate` 走版控裡的 SQL 檔，可追溯、可重播、出事可以往回看。
+> 開發期用 `push` 迭代很方便，正式環境不行。
 
 ---
 
@@ -1515,7 +1586,7 @@ git push → Zeabur 自動建置
 | **P0-2** | 定位判定實地量測 | §5.5 | 五站量測完成，`radiusM` 定案，達到 9/10 與 0/10 的驗收標準 |
 | **P0-3** | 相機＋角色合成輸出 | §7.2 | iOS ＋ Android 各成功輸出一張構圖正確的合成圖並存進相簿 |
 | **P0-4** | （新增）Cubism FREE 匯出 moc3 | §9.4 已驗 V2 | ✅ **2026-08-25 完成**——可匯出、無授權費；額度餘額與三點後果見 §9.4 |
-| **P0-5** | （新增）AI Hub 連通與快取驗證 | §6.3 已驗 V1 | ✅ **2026-08-25 完成**——端點通、延遲 0.79～1.28s、`cached_tokens` 不回報；工具見 `tools/p0_5_aihub_ping.py` |
+| **P0-5** | AI 供應商連通與延遲驗證 | §6.3 | ⚠️ **要重做**——2026-08-25 對 Zeabur AI Hub 的量測（0.79～1.28s、`cached_tokens` 不回報）已隨 2026-09-03 搬到 Gemini 而失效。重測必須連模型一起量（見 §1.2 的 thinking level 陷阱） |
 | **P1** | 龍山寺完整體驗 | §4–§9 全部 | 地圖→到場→對話→拍照→兩張卡，實地跑通一次 |
 | **P2** | 五站基礎層 | §2、§3 | 內容 ×5 完成並通過 `content:check`；13 張卡 |
 | **P3** | 萬華劇情 | §8.3 | 三站線性劇情，三張劇情卡 |
@@ -1581,7 +1652,7 @@ git push → Zeabur 自動建置
 | 5 | 引導提問 預寫 vs 生成 | **建議預寫池 ＋ 規則挑選**，附四點理由與挑選演算法 | §6.4 / T5 | ✅ **已給暫定值** |
 | 6 | 萬華腳本沿用程度 | 未處理——需逐字檢視既有腳本，屬 P3 | §8.3 | ⏸ 維持待確認 |
 | 7 | 展示模式開放程度 | **建議通關密語**，並設計了差異化額度與 UI 標示 | §5.4 / T3 | ✅ **已給暫定值** |
-| 8 | Zeabur AI Hub 模型與計費 | **已查證＋已實測**：端點、OpenAI 相容性、點數制、價格；2026-08-25 實測延遲與快取，確認不回報 `cached_tokens`，成本改採無快取欄 | §1.2 / §6.3 / §10.2 | ✅ **已解決** |
+| 8 | AI 供應商模型與計費 | 2026-08-25 對 Zeabur AI Hub 實測完成；**2026-09-03 搬到 Gemini 直連，該輪量測作廢**。成本仍採無快取欄（保守），但延遲與 `cached_tokens` 要重測 | §1.2 / §6.3 / §10.2 | ⚠️ **要重驗** |
 | 9 | 全域 AI 用量上限機制 | **完整設計**：四層防線、事前檢查事後累加、觸發後與 AI 失效表現一致 | §10.1 | ✅ **已解決** |
 | 10 | Cubism FREE 能否匯出 moc3 | **已實測**：可匯出、無授權費；真正的約束是動作參數額度僅餘 3 個 | §9.4 / §15 | ✅ **已解決**（2026-08-25） |
 | 11 | 各階段時程 | 未處理——依企劃書，P0 結束後才估 | §15 | ⏸ 維持待確認 |
@@ -1634,13 +1705,19 @@ git push → Zeabur 自動建置
 | POST | `/api/chat` | ＋ presence token | 對話（唯一 AI 入口） | P1 |
 | POST | `/api/site/:id/photo-task` | ＋ presence token | 回報快門，發任務卡 | P1 |
 | GET | `/api/collection` | player cookie | 圖鑑狀態 | P1 |
-| GET | `/api/sites` | 無 | 景點清單（地圖用，含 mapPos，**不含精確座標**） | P1 |
+| GET | `/api/sites` | 無 | 景點清單（含經緯度與感應半徑，**不含判定半徑**） | P1 |
 | POST | `/api/story/:id/advance` | ＋ presence token | 劇情推進 | P3 |
 | GET | `/auth/google` / `/auth/google/callback` | player cookie | Google 綁定 | P4 |
 | POST | `/api/account/delete` | player cookie | 清除所有資料 | P4 |
 | GET | `/api/admin/stats` | 密語 | 營運指標 | P4 |
 
-> **`/api/sites` 不回傳精確座標**：地圖只需要 `mapPos`（地圖像素座標）。把真實經緯度留在伺服器端，讓「哪裡算到場」不是前端可讀的資訊——這讓偽造座標必須用猜的，成本高很多。
+> **`/api/sites` 回經緯度，但不回判定半徑**【2026-08-29 改寫】
+>
+> 原文寫的是「不回傳精確座標，地圖只需要 `mapPos`（地圖像素座標）」。**那條在地圖改成真實 OSM 圖磚之後失效了**：圖釘要畫在正確位置就一定要有經緯度，而 `mapPos` 只是經緯度換算過的像素，可以直接反推回去——保護是假的，還多一層換算要維護。`mapPos` 因此從 `SiteSchema` 移除（全專案沒有任何程式碼在用它）。
+>
+> 現在的分界是：**「景點在哪」給前端，「要走多近才算到」留在伺服器。** 前者本來就藏不住（地圖上畫著龍山寺，Google 一查就有座標）；後者藏得住，而偽造座標的人真正需要的正是它——他知道去哪，但不知道 `radiusM` 是 50 還是 20，只能猜。
+>
+> 所以 `radiusM` 與 `extraCenters` **永遠不進 API 回應**。`/api/sites` 回傳的是 `sensingM`（感應半徑，前端畫漣漪用，猜到也不影響到場判定）。
 
 ---
 

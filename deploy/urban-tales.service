@@ -1,0 +1,58 @@
+# systemd unit —— 城市物語 Urban Tales
+# 安裝位置：/etc/systemd/system/urban-tales.service
+#（由 deploy/bootstrap.sh 代入 __USER__ / __APPDIR__ 後複製過去）
+#
+# 為什麼用 systemd 而不是 pm2 或 nohup：
+#   ・開機自啟（VM 重開／GCP 維護遷移後不用手動爬進去重開）
+#   ・崩潰自動重啟
+#   ・log 統一進 journal，用 `journalctl -u urban-tales -f` 看，不必自己管檔案輪替
+#   ・跟 nginx、postgresql 同一套管理介面，少學一種東西
+[Unit]
+Description=Urban Tales (SvelteKit / adapter-node)
+# ★ 一定要等資料庫起來。hooks.server.ts 的第一個請求就會連 DB，
+#   資料庫還沒好的話服務會起來但每個請求都 500 —— 那種狀態最難查，
+#   因為 systemctl status 顯示 active。
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__APPDIR__
+EnvironmentFile=/etc/urban-tales/urban-tales.env
+
+# adapter-node 的產出。`node build` 會找 build/index.js
+#
+# ★ HOST 只綁 loopback：外網掃不到 3000，對外一律經 nginx 的 443。
+#   （少開一個埠，就少一個被掃描到的面 —— 跟 Roku 同一個判斷。）
+# ★ BODY_SIZE_LIMIT：我們沒有任何上傳（照片不上傳，見企劃書 §7），
+#   壓到 64K 就夠，剩下的都是攻擊面。
+#
+# ★ ORIGIN 放在環境變數檔裡（它是部署專屬的網域，不該寫死在版控的檔案）。
+#   沒設的話 adapter-node 只看得到 http://127.0.0.1:3000，`event.url.origin`
+#   就會是那個值 —— 絕對網址會錯、日後的 Google OAuth 回呼會直接失敗，
+#   而且啟動時 adapter-node 會警告。
+#   （另一種做法是 PROTOCOL_HEADER/HOST_HEADER 讓它讀代理送來的 header，
+#     但那等於信任 Host header，而 Host 是外面送進來的。ORIGIN 寫死比較穩。）
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+Environment=NODE_ENV=production
+Environment=BODY_SIZE_LIMIT=65536
+ExecStart=/usr/bin/node __APPDIR__/build
+
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# ── 基本安全強化 ──
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectControlGroups=true
+ProtectKernelTunables=true
+
+[Install]
+WantedBy=multi-user.target

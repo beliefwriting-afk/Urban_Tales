@@ -28,9 +28,9 @@
 | 層           | 選擇                                       |
 | ------------ | ------------------------------------------ |
 | 前端 ＋ 後端 | SvelteKit 2（Svelte 5 runes）＋ TypeScript |
-| 部署         | Zeabur（Node adapter，單一服務）           |
+| 部署         | GCP VM（adapter-node ＋ nginx ＋ systemd） |
 | 資料庫       | PostgreSQL 16 ＋ Drizzle ORM               |
-| AI           | Zeabur AI Hub（HND1 東京，OpenAI 相容）    |
+| AI           | Gemini（OpenAI 相容端點）                  |
 | 內容         | Content-as-Code，YAML 進 Git ＋ Zod 驗證   |
 
 單一部署單元。沒有 Redis、沒有物件儲存、沒有 CDN、沒有訊息佇列。
@@ -41,7 +41,7 @@
 
 ```bash
 npm install
-cp .env.example .env     # 填入實際值；AIHUB_API_KEY 留空 = 本機 mock，不燒點數
+cp .env.example .env     # 填入實際值；AI_API_KEY 留空 = 本機 mock，不燒額度
 npm run dev
 ```
 
@@ -54,7 +54,10 @@ npm run dev
 | `npm run test`          | 單元測試                                                 |
 | `npm run test:guard`    | **驗證護欄機制本身有效**                                 |
 | `npm run check`         | TypeScript 型別檢查                                      |
-| `npm run db:push`       | 套用資料庫 schema                                        |
+| `npm run db:generate`   | 由 schema 產生 migration SQL（不需要連線）                |
+| `npm run db:migrate`    | **正式環境用這個** —— 套用 migration，有變更紀錄         |
+| `npm run db:push`       | 開發期快速同步 schema（不留紀錄，正式環境不要用）        |
+| `npm run smoke:api`     | 對正在跑的 dev server 做端到端檢查（需要 `npm run dev`） |
 
 ---
 
@@ -92,14 +95,19 @@ content/            內容層（進 Git，不做 CMS）
   schema.ts           ★ Zod 定義，型別與驗證的單一事實來源
   guardrails.yaml     ★ 全站唯一一份安全界線
   cards.yaml          13 張成就卡
-  sites/<id>/         每站六個 YAML
+  sites/<id>/         每站五個 YAML（草稿站只要 site.yaml）
   _template/          新增景點時複製這裡
+deploy/             GCP 部署（bootstrap.sh 一鍵、systemd、nginx）
 scripts/            建置期工具（TypeScript，會影響 CI 判定）
 tools/              離線工具（Python，不部署、不影響建置）
 src/lib/server/     伺服器端。★ SvelteKit 禁止前端 import 這個目錄
   soul/speak.ts       ★ 唯一出口
   ai/client.ts        ★ 唯一的 AI SDK 入口
   presence/geo.ts     到場判定（純函式，有測試）
+  auth/session.ts     訪客身分憑證（純函式，含 needsIdentity）
+  auth/presence.ts    在場憑證。★ 獨立金鑰、獨立驗證邏輯，不與 session 共用
+  auth/demo.ts        展示模式的通關密語與 cookie
+  content/sites.ts    景點載入器。★ 白名單決定哪些欄位能給前端
   db/schema.ts        資料表。★ 不存在任何經緯度欄位
 src/lib/client/
   soul/renderer.ts    SoulRenderer 抽象層（Live2D vs 分層 PNG 可抽換）

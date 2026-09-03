@@ -1,6 +1,6 @@
 # HANDOFF — 給接手的下一個對話
 
-> 由 Roku 於 2026-08-28 寫下（第五版）。**新對話開始時，讀完 `CONTEXT.md` 之後接著讀這一份。**
+> 第六版，2026-09-03 更新（§13）。**新對話開始時，讀完 `CONTEXT.md` 之後接著讀這一份。**
 > 這份是「上一次做到哪、下一步做什麼」，不是專案本身的定義。專案定義看企劃書與 SDD。
 
 ---
@@ -20,11 +20,20 @@
 **同日補做完 P0-5：端點通、延遲 0.79～1.28 秒、但 AI Hub 不回報 `cached_tokens`。**
 成本改採無快取估算（1,000 名玩家全破約 $116，仍可負擔）。細節見 §6 與 SDD §6.3。
 
-**下一步 = 地圖圖層（§11）。** 現在的地形是程序生成的佔位（`terrain.ts`），
-君和決定改用開源地圖資料。方案已提出但**尚未拍板**。
+**2026-08-28 地圖圖層完成**：OSM → Python 離線光柵化 → 630 張像素圖磚（整個台北市，3.61 MB）。
+完整交接在 **§12**，含八個很難自己想到的坑。介面展示那一輪在 **§10**。
 
-介面展示這一輪的完整交接在 **§10**，包含八個很難自己想到的坑。
-（P0-1 角色動畫往後排了——介面先做完比較能拿去給人看。）
+**★ 最新一輪（2026-08-29 ～ 09-03）在 §13**，兩件事：
+
+1. **後端開工**——訪客身分、景點清單、到場判定＋展示模式三支端點寫完，51 條測試。
+   三站內容從前身專案轉過來了（人格卡、素材庫），還缺引導提問與保底台詞。
+2. **從 Zeabur 搬到 GCP**——資安考量。`deploy/` 五個檔案照君和自己的 Roku 專案的形狀寫好，
+   **但還沒實際部署過**，VM 還沒建。
+
+⚠️ **§13.8 有一份「立刻要做的」清單**，其中兩項不做會出事：
+本機 `.env` 還是 `AIHUB_*`（讀不到會安靜退回 mock 模式）、migration 檔還沒產生。
+
+（P0-1 角色動畫再度往後排了——後端接起來比較能看到整個系統會不會通。）
 
 ---
 
@@ -38,8 +47,10 @@
 | Node | **24.19.0**，由 **fnm** 管理（`%LOCALAPPDATA%\Programs\fnm`） |
 | npm | 11.17.0 |
 | git | 2.55.0，`user.name` / `user.email` / `init.defaultBranch=main` 都已設定 |
-| 部署 | Zeabur（尚未建立服務） |
-| AI | Zeabur AI Hub（已儲值，**金鑰尚未建立**） |
+| 部署 | **GCP Compute Engine 單機**（2026-09-03 由 Zeabur 遷出，見 §13） |
+| AI | **Gemini**（OpenAI 相容端點，AI Studio 免費層） |
+| 資料庫 | **VM 上自架 PostgreSQL**，只綁 127.0.0.1，開發機走 SSH 通道 |
+| 網域 | `tales.alcloud.us`（Cloudflare，DNS only 灰色雲朵） |
 
 ### 文件閱讀順序
 
@@ -251,10 +262,14 @@ Desktop / Documents / Pictures 都已指回 `C:\Users\erics\`，OneDrive 資料�
 
 打通 `hnd1.aihub.zeabur.ai` 端點、量測實際延遲、確認 `cached_tokens` 有回報。
 `src/lib/server/ai/client.ts` 已經寫好，`complete()` 也已經把 `cachedTokens` 讀出來了。
-需要先去 Zeabur Dashboard 建 API 金鑰（**只顯示一次**），填進 `.env` 的 `AIHUB_API_KEY`。
+> ⚠️ **【2026-09-03 作廢】以下這一節記的是對 Zeabur AI Hub 的量測。**
+> 搬到 Gemini 直連之後，延遲數字與 `cached_tokens` 的結論都不再適用，P0-5 要重做。
+> 保留這一節是為了留住**方法與陷阱**（特別是「量延遲時每次要換 user 訊息」那一段），
+> 結論本身不要引用。金鑰現在在 aistudio.google.com 產生，填進 `AI_API_KEY`。
 
-> `.env` 的 `AIHUB_API_KEY` 留空 = **本機 mock 模式**，`complete()` 直接回固定字串
-> 不燒點數。這是刻意的（SDD §13.2）。開發時想省點數就把它清空。
+> `.env` 的 `AI_API_KEY` 留空 = **本機 mock 模式**，`complete()` 直接回固定字串
+> 不燒額度。這是刻意的（SDD §13.2）。⚠️ 反過來說，正式環境忘了填，
+> 整個對話系統會安靜地變成假的。
 
 **實測結果**（工具：`tools/p0_5_aihub_ping.py`，零依賴、強制 IPv4、不進 CI）：
 
@@ -573,3 +588,182 @@ SDD §5.4 的「自訂位置」以前只是文件。現在**展示模式下長�
   `chrome://flags/#unsafely-treat-insecure-origin-as-secure` 加入 dev 位址；上線到 https 就正常。
 - **iOS 上的旋轉品質沒驗過**。`image-rendering: pixelated` 在旋轉時 Chrome 會用最近鄰，
   Safari 未確認。糊掉的話像素風會消失，要另尋辦法。
+
+---
+
+## 13. 後端開工（2026-08-29 ～ 09-03）
+
+> 這一輪做了兩件事：**後端前三支端點**，以及**從 Zeabur 搬到 GCP**。
+> 兩件事都還沒實際部署過——寫完了、測過了，但 VM 還沒建。
+
+### 13.1 先看了前身專案的後端
+
+`C:\Users\erics\Desktop\City_Soul_AI\citysoul-backend`（FastAPI，26 個端點、11,361 行）。
+君和參與過那輪開發，所以這次是「逐項確認邏輯合不合現在的設計」而不是照抄。
+
+**邏輯相通、值得參考的三件事**：
+
+1. **三種 token 的驗證邏輯刻意不共用**——前身在三個檔案裡把幾乎一樣的程式碼寫了三次，
+   註解寫得很直白：「一旦共用，某天有人為了某個情境放寬其中一種，三種會一起被放寬，
+   而 code review 只會看到一個看似無害的參數變更。」我們照做了（見 `presence.ts` 檔頭）。
+2. **配額擋在最前面**——被擋下的請求不該讓下游付出任何成本。
+3. **全域上限觸頂不回錯誤、安靜切保底句**——「全域上限是我們的帳單問題，不是玩家做錯事」。
+
+**邏輯不通、不能抄的兩件事**：
+
+- 身分：前身用 `device_id` ＋ 90 天 Bearer token（App 思維）。我們是網頁，改用 HttpOnly cookie，
+  而且隱私約束下不收裝置識別碼。
+- 拍照：前身 `POST /quests/{id}/landmark-photo` 會呼叫地標辨識 AI 判定照片。
+  我們整個拿掉了拍照辨識，只回報「快門按了」。
+
+**確定不抄**：TTS、推播、天氣、當日情境、長期記憶 embedding、共鳴值、每日任務重置。
+全是前身「回訪機制」的枝葉，CONTEXT 已明文推翻。
+
+### 13.2 三個拍板
+
+| # | 決定 | 理由 |
+|---|---|---|
+| 1 | `/api/sites` **回經緯度，不回判定半徑** | 地圖改成真實 OSM 圖磚後，「不回座標」已經做不到（圖釘要畫對就得有經緯度，而 `mapPos` 可以反推）。承認「景點在哪」藏不住，只保密「要走多近才算到」 |
+| 2 | **一定要走到 50m 內才能對話** | 前身允許 150m 感應圈就開始聊天，等於開了「不用真的到現場也能玩到 AI 對話」的路徑。只發**一張** presence token，不抄兩張制 |
+| 3 | **用量計數器全放 Postgres**，不裝 Redis | 少一個服務、少一份設定、少一個會斷線的東西 |
+
+**連帶移除 `mapPos`**：全專案沒有任何程式碼在用它，它存在的唯一理由就是決定 1 推翻的那條。
+SDD 附錄 D 已改寫並附上失效理由。
+
+### 13.3 做完的三支端點
+
+| 切片 | 檔案 | 測試 |
+|---|---|---|
+| 訪客身分 | `hooks.server.ts`、`lib/server/auth/session.ts` | 15 條 |
+| 景點清單 | `lib/server/content/sites.ts`、`routes/api/sites/+server.ts` | 11 條 |
+| 到場判定 ＋ 展示模式 | `lib/server/auth/presence.ts`、`demo.ts`、`routes/api/presence/`、`routes/demo/` | 17 條 |
+
+加上原有的 8 條，`npm test` 現在是 **51 條**。另外有 `npm run smoke:api`——對正在跑的 dev server
+發真的 HTTP 請求，做端到端檢查（需要 dev server 在跑，所以**刻意不進 `npm run verify`**：
+把需要外部服務的測試混進 verify，會讓 verify 變成時好時壞的東西，然後大家開始忽略它）。
+
+### 13.4 ⚠️ 這一輪踩到的坑
+
+**① 時鐘要統一走資料庫。**
+`lastSeenAt: new Date()` 用的是**應用伺服器**的時鐘，而 `created_at` 的預設值是**資料庫**的時鐘。
+兩者差了 174 毫秒，結果 `players` 出現「最後出現時間早於建立時間」這種看起來像鬧鬼的資料。
+正解是 ``sql`now()` ``。之後每日額度重置、憑證效期都要比時間，混用兩個時鐘會變成
+「額度沒到隔天卻重置了」這類查不出根因的 bug。**全站只認資料庫這一個時鐘。**
+
+**② 護欄的判準要選「測得到」的，即使語意稍弱。**
+`hooks.server.ts` 判斷「這個請求要不要建立玩家」時，最準的信號是 `Sec-Fetch-Mode: navigate`。
+但 `Sec-` 開頭是 **forbidden header**——Node 的 fetch 會自己塞 `cors` 並覆蓋你設的值，
+所以用它當判準的話，**那道閘門永遠寫不出自動化測試**，只能靠人開瀏覽器手動確認。
+改用 `Accept` 含 `text/html`（文件請求一定帶，圖磚／CSS／JS 都不會命中），
+`needsIdentity` 移到 `session.ts` 當純函式匯出，六條單元測試釘住。
+**判準的選擇要把「這條規則將來怎麼被驗證」算進去。**
+
+**③ 那道閘門本身是必要的，不是效能微調。**
+`handle` 會攔到每一個請求，包括 630 張圖磚。玩家第一次開頁時瀏覽器同時發十幾個請求，
+每一個都還沒有 cookie——不擋的話一次開頁生出十幾列 players，而且它們互相不知道對方存在。
+
+**④ HTTP header 的值只能是 ASCII。**
+用中文字串當假 token 塞進 `Cookie`，Node 在送出前就丟 `Cannot convert argument to a ByteString`。
+
+**⑤ Drizzle Studio 不可靠。**
+`npm run db:studio` 起得來，但 `local.drizzle.studio` 的分頁會卡在轉圈直到渲染程序沒回應。
+要看資料就寫腳本直接查（`smoke:api` 最後會列出 players 表）。
+
+**⑥ 測試腳本要自己收拾自己。**
+`smoke:api` 每跑一次會建立 3 個玩家（沒 cookie 一個、竄改的一個、亂編的一個）。
+不清的話跑十次就沒人分得出哪一列是真的玩過遊戲的人。腳本結束時會自己刪掉，
+`-- --purge` 才會連先前殘留的一起清（破壞性操作要明確旗標）。
+
+### 13.5 內容：草稿站機制
+
+`content:check` 規則 #2 要求每站五份檔案齊全、#5 要 12 題引導提問、#8 要立繪存在。
+但引導提問與保底台詞只有君和能寫、立繪要等 P0-1——**後端會被內容擋住**。
+
+解法是在 `site.yaml` 加 `status: draft | playable`，**預設 draft**：
+
+- **draft** ＝ 只有 `site.yaml`。地圖上看得到圖釘、算得出距離，但**進不去**
+  （`/api/site/:id/enter` 一律拒絕），`content:check` 只驗 site.yaml。
+- **playable** ＝ 五份齊全 ＋ 立繪就位，所有內容規則才對它生效。
+
+**判準是明確宣告，不是「檔案缺不缺」**：少一個檔可能是手滑，`status: draft` 是一句聲明。
+而且 `content:check` 每次都會把草稿站與各站缺件唸出來——前身的教訓是「表建好了但沒人生產內容」，
+**對策不是禁止半成品存在，是不讓它安靜地存在。**
+
+`SoulSchema.art` 因此改成可為 null，但 content:check 強制「playable 的站 art 不得為 null」。
+
+### 13.6 三站內容從前身轉過來了
+
+前身 `citysoul-backend/content/` 有萬華三站的完整資料，而且**已具名審閱**
+（`reviewed_by: Jessie_Lee`，Lead 逐版審閱到 v5～v7）。轉換結果：
+
+| 我們的檔案 | 來源 | 狀態 |
+|---|---|---|
+| `site.yaml` | 座標沿用現有近似值 | ✅ 三站都有 |
+| `materials.yaml` | `landmarks/*.yaml` 的 founding_facts ＋ key_events ＋ common_misconceptions | ✅ 各 13 條 |
+| `soul.yaml` | `personas/*_v5`～`v7` | ✅ 三站都有 |
+| `prompts.yaml` | 前身是即時生成，**沒有預寫池** | ❌ 每站要補 12 題 |
+| `fallbacks.yaml` | 前身只有 `llm_failure_fallback` 與 `quota_fallback` **各一句** | ❌ 四種情境各 3 句要寫 |
+| 立繪 | 前身是 Unity 3D 角色 | ❌ 等 P0-1 |
+
+⚠️ **`confidence: mainstream` 不一律等於已知史實。** 對形狀的象徵解釋（八卦祈福、十字架鎮邪）、
+「剝皮」地名由來的各種說法，標成**民間傳說**並拿掉 source——企劃書 §4.2 第 5 條要的就是這個區分。
+
+⚠️ **這些內容都還要君和逐字審。** 措辭會進 prompt，也就會影響角色說出口的話。
+
+### 13.7 從 Zeabur 搬到 GCP
+
+**原因**：君和說 Zeabur 有資安危機。順帶關掉一個既有的面——Zeabur 的託管 PostgreSQL
+掛在公開 TCP 連接埠上（`43.133.167.62:31166`），全世界都連得到，只靠密碼擋。
+
+**做法照君和自己的 Roku 專案**（`Desktop\Roku_AI`，LINE bot，已在 GCP 跑）。
+新增 `deploy/` 五個檔案：`bootstrap.sh`（218 行，冪等，九步）、`urban-tales.service`、
+`nginx-urban-tales.conf`、`env.example`、`README.md`。
+
+**繼承 Roku 的兩道守門**：重建時帳號不符會擋下來（否則 systemd 的 `User=` 被改掉、
+環境變數檔卻因「已存在就不覆蓋」而沒更新 → 服務讀不到金鑰，症狀是「金鑰填了卻像沒填」）；
+環境變數檔重複變數名的檢查（systemd 取最後一次出現的值，空值會蓋掉填好的值）。
+
+**自己加的一道**：建置前先開 2GB swap。e2-small 只有 2GB，`vite build` 可能被 OOM killer 砍掉，
+症狀是「`npm run build` 沒有錯誤訊息就中斷了」。
+
+**環境變數改名 `AIHUB_*` → `AI_*`。** 供應商名字不該進變數名——第一版綁死 Zeabur，
+搬家時改的全是名字、邏輯一行沒變。
+
+#### ★★★ 這次搬家最重要的一個發現 ★★★
+
+君和在 Roku 的 VM 上實測過（2026-09-01，真實 system prompt，中位數）：
+
+| 模型 | 預設 thinking | 延遲中位數 |
+|---|---|---|
+| `gemini-3.7-flash` | medium | **8.05 秒**（4.71–13.91） |
+| `gemini-3.5-flash-lite` | minimal | **0.74 秒**（0.58–0.98） |
+
+**SDD §6.5 的逾時是 8 秒，而 medium 思考的中位數就是 8.05 秒。**
+拿它當主要模型，一半以上的對話會逾時走保底台詞——而且開發時很可能剛好都落在 8 秒內，
+上線後才發現。所以 `AI_MODEL_PRIMARY` 必須是 flash-lite 那一級。
+**這不是省錢考量，是能不能用的問題。** 而且我們比 LINE bot 更禁不起慢：玩家站在廟口等。
+
+### 13.8 🔜 下一步
+
+**立刻要做的（部署前）**：
+
+1. `npm run db:generate` 產生 migration 檔並進版控（正式環境用 `db:migrate` 不用 `push`）
+2. 本機 `.env` 把 `AIHUB_*` 改成 `AI_*` ——**現在讀不到會安靜退回 mock 模式**
+3. Cloudflare 加 A 記錄 `tales`（灰色雲朵）
+4. GCP 建 VM（e2-small / us-central1 / Ubuntu 24.04 / **平衡永久磁碟** / 靜態 IP / HTTP+HTTPS）
+5. `bash deploy/bootstrap.sh tales.alcloud.us`
+
+**部署後**：
+
+- **P0-5 重做**：Gemini 直連的延遲、成本模型、`cached_tokens` 是否回報。連模型一起量。
+- 切片 4：`POST /api/site/:id/enter`（草稿站要拒絕，那正是要測的行為）
+- 切片 5：`POST /api/chat` ＋ `speak()` 九步 —— **這一支需要至少一站的 `prompts.yaml` 與 `fallbacks.yaml`**
+- 切片 6：快門回報 ＋ 圖鑑
+- 切片 7：前端 `mock/session.svelte.ts` 換成真 API（UI 元件一行不動）
+
+**還沒做、但有真玩家之前一定要做的**：
+
+- **資料庫備份**。現在完全沒有。照 Roku 的做法：每日 `pg_dump` ＋ 傳 Google Drive ＋ 保留幾份。
+- **開發用資料庫**。現在開發直接連正式庫，而 `smoke:api -- --purge` 會清 players 表。
+- **90 天換 Google 帳號的 SOP**。Roku 有一份，兩個坑：靜態 IP 要沿用不要新建
+  （孤兒 IP 未使用時收費更貴，約 $7/月）；重建要用同一個帳號跑 bootstrap。
