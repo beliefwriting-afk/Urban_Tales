@@ -363,6 +363,59 @@ for (const f of DB_FILES) {
 	});
 }
 
+// ─── 額外：範本檔不得含真實金鑰 ──────────────────────────────
+//
+// ★★★ 2026-09-03 由 GitHub 的推送保護抓到一次。★★★
+//
+// 那次是把 Gemini 金鑰填進了 `.env.example` 而不是 `.env`——兩個檔名只差五個字元，
+// 一個進版控、一個不進。GitHub 擋下來了，但**那是最後一道防線，不該是唯一一道**：
+// 它只認得它看得懂的金鑰格式，換一家供應商、換一種格式就未必攔得住。
+//
+// 這條檢查擋的是「範本裡的金鑰欄位有值」這個**結構性**錯誤，跟金鑰長什麼樣無關。
+// 判準刻意只看欄位名與「是不是空的／是不是佔位」——愈簡單的規則愈不會誤判，
+// 也就愈不會被人為了趕時間而關掉。
+
+/** 這些後綴的欄位一律必須留空 */
+const SECRET_FIELD = /(KEY|SECRET|TOKEN|PASSPHRASE|PASSWORD)$/;
+
+/** 看起來像「等你來填」的值 */
+const isPlaceholder = (v: string) => /^[<（]|^__|^your[-_]|^\$\{|[<>]|__/.test(v);
+
+/** 連線字串裡的帳號與密碼。有一邊不是佔位就當成真憑證 */
+const CREDENTIALS = /:\/\/([^/@\s]*):([^/@\s]*)@/;
+
+const TEMPLATE_ENV_FILES = ['.env.example', 'deploy/env.example'];
+
+for (const rel of TEMPLATE_ENV_FILES) {
+	const abs = join(ROOT, rel);
+	if (!existsSync(abs)) continue;
+
+	readFileSync(abs, 'utf8')
+		.split(/\r?\n/)
+		.forEach((line, i) => {
+			const m = /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line);
+			if (!m) return;
+			const [, key, raw] = m;
+			const value = raw.trim();
+			if (value === '' || isPlaceholder(value)) return;
+
+			if (SECRET_FIELD.test(key)) {
+				fail(
+					'★機密',
+					`${rel}:${i + 1} 的 ${key} 有值 —— 範本會進版控，金鑰要填進 .env（不進版控）`
+				);
+			}
+
+			const cred = CREDENTIALS.exec(value);
+			if (cred && !(isPlaceholder(cred[1]) || isPlaceholder(cred[2]))) {
+				fail(
+					'★機密',
+					`${rel}:${i + 1} 的 ${key} 是一組含真實帳密的連線字串 —— 改成 <帳號>:<密碼> 的佔位形式`
+				);
+			}
+		});
+}
+
 // ─── 報告 ────────────────────────────────────────────────────
 
 const line = '─'.repeat(64);
