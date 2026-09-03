@@ -61,6 +61,22 @@ function stamp(response: Response, how: 'skipped' | 'existing' | 'created'): Res
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.playerId = null;
 
+	// ★★★ 沒有對應路由的請求不建立身分。★★★
+	//
+	// ⚠️ 2026-09-03 上線後實測：十一分鐘內 `players` 多了 18 列，全是掃描器建的。
+	//    公開 IP 每天都會被掃 `/about`、`/login.action`、`/.env`、`/.git/config`……
+	//    這些路徑不存在、回的是 404，但只要帶著 `Accept: text/html`
+	//    就會通過 needsIdentity 拿到一張 cookie 與一列玩家。
+	//
+	// `event.route.id` 在 handle 裡就可以讀，比對不到任何路由時是 null——
+	// 也就是「這個請求最後會是 404」。那種請求不該在資料庫留下任何東西。
+	//
+	// ★ 這個判斷刻意不寫進 needsIdentity：那是一個純函式，只看得到路徑與 header，
+	//   看不到路由表。硬要塞進去就得把路由清單複製一份給它維護，那才是真的會漂移。
+	if (event.route.id === null) {
+		return stamp(await resolve(event), 'skipped');
+	}
+
 	if (!needsIdentity(event.url.pathname, event.request.headers)) {
 		const skipped = stamp(await resolve(event), 'skipped');
 		if (dev) {

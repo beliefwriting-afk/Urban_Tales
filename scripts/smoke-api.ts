@@ -26,6 +26,9 @@
 import { readFileSync } from 'node:fs';
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:5173';
+
+/** 對正式站跑時，有幾條檢查的預期是相反的（Secure、除錯 header） */
+const isProd = BASE.startsWith('https://');
 const COOKIE = 'ut_player';
 
 /**
@@ -119,14 +122,21 @@ async function main() {
 
 	// hooks 自己回報它走了哪一條路（dev 專用 header）。
 	// 沒有這個 header ＝ 請求根本沒經過 hooks.server.ts。
+	// ★ x-ut-identity 是 dev 專用的除錯 header，正式環境刻意不發
+	//   （回應 header 是公開資訊，沒必要把內部流程講給所有人聽）。
+	//   所以它「不存在」在正式站是正確行為，不是失敗。
 	const how = first.headers.get('x-ut-identity');
-	check(
-		'請求有經過 hooks.server.ts',
-		how !== null,
-		how
-			? `走的是 ${how}`
-			: '★ 沒有 x-ut-identity —— hooks 沒被載入，或 dev server 是舊的，重開 npm run dev'
-	);
+	if (isProd) {
+		console.log('   （正式環境不發 x-ut-identity 除錯 header，這一項跳過）');
+	} else {
+		check(
+			'請求有經過 hooks.server.ts',
+			how !== null,
+			how
+				? `走的是 ${how}`
+				: '★ 沒有 x-ut-identity —— hooks 沒被載入，或 dev server 是舊的，重開 npm run dev'
+		);
+	}
 	const dbg = first.headers.get('x-ut-debug');
 	if (dbg) console.log(`   hooks 當時看到的：${dbg}`);
 	if (how !== null && how !== 'created') {
@@ -153,10 +163,15 @@ async function main() {
 	check('HttpOnly 有設', /HttpOnly/i.test(firstSet));
 	check('SameSite=Lax 有設', /SameSite=Lax/i.test(firstSet));
 	check('Path=/ 有設', /Path=\//i.test(firstSet));
+	// ★ 同一條規則，兩個環境的預期相反：
+	//     http（本機）—— 不能有 Secure，否則瀏覽器會直接把 cookie 丟掉
+	//     https（正式）—— 必須有 Secure，否則 cookie 會在明文連線裡裸奔
+	//   程式碼裡是 `secure: !dev` 一行，這裡就要跟著協定翻轉，不能寫死。
+	const hasSecure = /;\s*Secure/i.test(firstSet);
 	check(
-		'本機不設 Secure（http 下設了 cookie 會被瀏覽器丟掉）',
-		!/;\s*Secure/i.test(firstSet),
-		BASE.startsWith('https') ? '⚠️ 這是 https，Secure 應該要有' : ''
+		isProd ? '正式站有設 Secure' : '本機不設 Secure（http 下設了會被瀏覽器丟掉）',
+		hasSecure === isProd,
+		hasSecure === isProd ? '' : isProd ? '★ https 卻沒有 Secure' : '★ http 卻設了 Secure'
 	);
 
 	// ── 2. 帶著同一張 cookie → 不該重發 ─────────────────────────
@@ -195,6 +210,18 @@ async function main() {
 	});
 	remember(setCookieOf(garbage));
 	check('亂編的 cookie 不會讓伺服器爆掉', garbage.status === 200, `HTTP ${garbage.status}`);
+
+	// ── 4b. 不存在的路徑不該建立身分 ────────────────────────────
+	//
+	// ★ 這條擋的是掃描器。公開 IP 每天都會被戳 /about、/login.action、/.env……
+	//   那些請求帶著 Accept: text/html，若照收就會在 players 表留下一列。
+	//   2026-09-03 上線十一分鐘實測被建了 18 列，全是掃描器。
+	const ghost = await fetch(`${BASE}/this-route-does-not-exist`, { headers: NAV_HEADERS });
+	check(
+		'★ 不存在的路徑不會建立玩家',
+		setCookieOf(ghost) === null,
+		setCookieOf(ghost) ? '★ 掃描器每戳一次就多一列玩家' : `HTTP ${ghost.status}`
+	);
 
 	// ── 5. 圖磚不走身分流程 ─────────────────────────────────────
 	//
