@@ -5,7 +5,7 @@
 # 用法（在 VM 上，以一般帳號執行，不要用 sudo 跑整支）：
 #     git clone <你的 repo> ~/Urban_Tales
 #     cd ~/Urban_Tales
-#     bash deploy/bootstrap.sh tales.alcloud.us
+#     bash deploy/bootstrap.sh urbantales.alcloud.us
 #
 # ⚠️ 服務會以「執行這支腳本的那個帳號」的身分跑。重建時務必用相同帳號登入執行，
 #    否則 systemd unit 的 User= 會被改掉，而既有的 /etc/urban-tales/urban-tales.env
@@ -19,7 +19,7 @@ set -euo pipefail
 DOMAIN="${1:-${DOMAIN:-}}"
 if [[ -z "$DOMAIN" ]]; then
     echo "用法：bash deploy/bootstrap.sh <你的網域>"
-    echo "例：  bash deploy/bootstrap.sh tales.alcloud.us"
+    echo "例：  bash deploy/bootstrap.sh urbantales.alcloud.us"
     exit 1
 fi
 

@@ -50,7 +50,7 @@
 | 部署 | **GCP Compute Engine 單機**（2026-09-03 由 Zeabur 遷出，見 §13） |
 | AI | **Gemini**（OpenAI 相容端點，AI Studio 免費層） |
 | 資料庫 | **VM 上自架 PostgreSQL**，只綁 127.0.0.1，開發機走 SSH 通道 |
-| 網域 | `tales.alcloud.us`（Cloudflare，DNS only 灰色雲朵） |
+| 網域 | `urbantales.alcloud.us`（Cloudflare，DNS only 灰色雲朵） |
 
 ### 文件閱讀順序
 
@@ -751,7 +751,7 @@ SDD 附錄 D 已改寫並附上失效理由。
 2. 本機 `.env` 把 `AIHUB_*` 改成 `AI_*` ——**現在讀不到會安靜退回 mock 模式**
 3. Cloudflare 加 A 記錄 `tales`（灰色雲朵）
 4. GCP 建 VM（e2-small / us-central1 / Ubuntu 24.04 / **平衡永久磁碟** / 靜態 IP / HTTP+HTTPS）
-5. `bash deploy/bootstrap.sh tales.alcloud.us`
+5. `bash deploy/bootstrap.sh urbantales.alcloud.us`
 
 **部署後**：
 

@@ -48,7 +48,7 @@ Cloudflare → `alcloud.us` → DNS → Add record
 | 欄位 | 值 |
 |---|---|
 | Type | `A` |
-| Name | `tales` |
+| Name | `urbantales` |
 | IPv4 | VM 的外部 IP（第二步拿到後填） |
 | Proxy status | **DNS only（灰色雲朵）** |
 
@@ -59,16 +59,39 @@ Cloudflare → `alcloud.us` → DNS → Add record
 
 ## 第二步：建立 VM
 
+**GCP 專案：`larp-507213`**（跟謎案迴聲同一個專案）。
+
+> **為什麼不開新專案**：GCP 對「一個帳單帳戶能綁幾個專案」有配額，君和的已經滿了。
+> 同專案不影響隔離——**共用的只有帳單帳戶、SSH 金鑰與 VPC 網路**，
+> VM、磁碟、靜態 IP、nginx、憑證、服務全都各自獨立。
+> 一台搞掛不影響另一台，90 天重建也能一次搬一支。
+>
+> 💡 附帶好處：**SSH 金鑰設在專案層級**（Compute Engine → 中繼資料 → 安全殼層金鑰），
+> 同專案下的新 VM 會自動繼承，不必再貼一次公鑰。
+
 Compute Engine → 建立執行個體
 
 | 欄位 | 設定 |
 |---|---|
-| 地區 | **us-central1**（跟 Roku 同區，之後要互相搬東西比較方便） |
-| 機型 | **e2-small**（2 vCPU 共用、2GB RAM） |
+| 名稱 | `urban-tales`（與 `larp` 那台分開） |
+| 地區 | **us-central1**（與 larp 同區） |
+| 機型 | **e2-small**（2 vCPU 共用、2GB RAM）—— 理由見下 |
 | 作業系統 | **Ubuntu 24.04 LTS** |
 | 開機磁碟 | **平衡永久磁碟 20GB** |
-| 外部 IP | **保留靜態外部 IP**，取名 `urban-tales-ip` |
+| 外部 IP | **新建保留靜態位址**，取名 `urbantales2`（沿用命名慣例：內部 1、外部 2） |
 | 防火牆 | **HTTP 與 HTTPS 兩個都勾** |
+
+**為什麼不跟 larp 一樣用 e2-micro**：
+
+1. larp 那台跑的是 FastAPI ＋ Redis，相依全是小套件，實測只吃 76MB。
+   我們這台要同時跑 **Node SSR ＋ PostgreSQL ＋ `vite build`**，1GB 會很緊。
+2. ⚠️ **GCP 長期免費層的 e2-micro 是「每個帳單帳戶每月一台」**，
+   而那一台已經被 larp 用掉了。所以第二台 e2-micro **要收費**（約 $7/月），
+   省下來的錢不足以換來「隨時可能因為記憶體不夠而卡住」的風險。
+
+> 💡 **機型之後可以改**：關機 → 改機型 → 開機，IP 與磁碟都保留，不必重建 VM。
+> 這跟磁碟類型不同——**磁碟類型建立後根本不能改**（只能走快照 → 建新磁碟 → 換掉）。
+> 所以機型可以先保守、之後再降；磁碟那格才是選錯就要重來的。
 
 ⚠️ **磁碟一定要「平衡」不要「標準」。** 標準是 HDD，IOPS 跟容量成正比，
 20GB 只有約 15 讀取 IOPS——`npm ci` 那一步會從兩三分鐘拖到十幾分鐘。
@@ -85,11 +108,33 @@ SSH 金鑰照 Roku 那份教學的做法（Compute Engine → 中繼資料 → �
 
 ## 第三步：佈署
 
+⚠️ **deploy key 要重新產一把。** 這是一台全新機器，larp 或 Roku 那台上的金鑰不在這裡。
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/gh_urban_tales -N "" -C "urban-tales-deploy"
+cat ~/.ssh/gh_urban_tales.pub
+```
+
+把印出來的公鑰貼到 GitHub → `Urban_Tales` repo → Settings → Deploy keys →
+Add deploy key（**不要勾寫入權限**）。然後告訴 ssh 要用哪一把：
+
+```bash
+printf 'Host github.com\n  IdentityFile ~/.ssh/gh_urban_tales\n  IdentitiesOnly yes\n' >> ~/.ssh/config
+```
+
+接著 clone 並佈署（⚠️ **用 SSH 網址，不是 https://**）：
+
 ```bash
 git clone git@github.com:beliefwriting-afk/Urban_Tales.git ~/Urban_Tales
 cd ~/Urban_Tales
-bash deploy/bootstrap.sh tales.alcloud.us
+nohup bash deploy/bootstrap.sh urbantales.alcloud.us > ~/bootstrap.log 2>&1 &
+tail -f ~/bootstrap.log
 ```
+
+⚠️ **用 `nohup`**：bootstrap 要跑好幾分鐘（`npm ci` ＋ `vite build`），
+SSH 一斷腳本就會被中止，而且可能停在很難收拾的中間狀態。
+`Ctrl+C` 只會停掉 `tail`，不會停掉腳本；要再看進度就重連後 `tail -f ~/bootstrap.log`。
+（這招是從 larp 那份遷移文件學來的。）
 
 腳本會做完九件事：系統套件 → Node 24 → 2GB swap → PostgreSQL ＋ 建庫建帳號 →
 環境變數檔（自動填資料庫密碼與 `SESSION_SECRET`）→ `npm ci` ＋ `npm run build` ＋
@@ -154,8 +199,17 @@ sudo -u postgres psql urban_tales
 
 ## 🔜 還沒做的
 
-- **資料庫備份。** 現在沒有任何備份機制。真的有玩家之後這是第一優先。
-  建議照 Roku 的做法：每日 `pg_dump` ＋ 傳到 Google Drive ＋ 保留最近幾份。
+- **資料庫的邏輯備份。** GCP 建立 VM 時掛了每日磁碟快照（`default-schedule-1`，
+  每天中午 12:00–13:00），**那不能取代 `pg_dump`**：
+
+  | | 磁碟快照 | `pg_dump` |
+  |---|---|---|
+  | 一致性 | crash-consistent（等同拔電源後重開） | 交易一致 |
+  | 還原粒度 | 整顆磁碟，要換掉整台機器 | 單一資料表、單一列都行 |
+  | 看得到內容嗎 | 不行，是二進位映像 | 是純 SQL，可以直接讀 |
+
+  快照擋得住「VM 整台掛掉」，擋不住「某張表被誤刪」或「想看三天前那筆資料長怎樣」。
+  真的有玩家之後照 Roku 的做法補上：每日 `pg_dump` ＋ 傳 Google Drive ＋ 保留最近幾份。
   在那之前，玩家進度遺失的後果是「重新收集成就卡」，不是災難，但別忘了。
 - **開發用資料庫。** 現在開發直接連正式庫。有真玩家之前可以接受，之後要分開。
 - **90 天換帳號的 SOP。** Roku 那份寫得很完整，我們也需要一份——

@@ -44,6 +44,12 @@ ExecStart=/usr/bin/node __APPDIR__/build
 
 Restart=always
 RestartSec=5
+
+# ⚠️ 停止的保險絲。預設 90 秒太長——2026-09-03 第一次部署時就等滿了 90 秒
+#   才被 SIGKILL（原因是資料庫連線池沒收，見 src/lib/server/db/index.ts）。
+#   那個根因已經修掉，這裡留 20 秒當第二道：日後若又有東西掛在事件迴圈上，
+#   部署會慢 20 秒而不是 90 秒，而且 journal 裡會留下 timeout 紀錄可以查。
+TimeoutStopSec=20
 StandardOutput=journal
 StandardError=journal
 

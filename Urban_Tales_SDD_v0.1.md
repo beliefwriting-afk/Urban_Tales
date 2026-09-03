@@ -226,7 +226,7 @@ GCP Compute Engine · e2-small · us-central1 · Ubuntu 24.04
 ├── node build     :3000 ← adapter-node，只綁 127.0.0.1，由 systemd 管
 └── PostgreSQL     :5432 ← 只綁 127.0.0.1，不對外
 外部依賴：Gemini API
-網域：tales.alcloud.us（Cloudflare，DNS only 灰色雲朵）
+網域：urbantales.alcloud.us（Cloudflare，DNS only 灰色雲朵）
 ```
 
 **一台機器，三個行程。** 沒有 Redis、沒有物件儲存、沒有 CDN、沒有訊息佇列。理由：照片不上傳、內容在 repo、用量計數器放 Postgres——這三個決定各砍掉一個基礎設施。
@@ -1499,8 +1499,8 @@ DEMO_PASSPHRASE=
 # ── 網域 ───────────────────────────
 # ★ adapter-node 靠 ORIGIN 知道自己對外的網址。沒設的話它只看得到
 #   http://127.0.0.1:3000 —— 絕對網址與 OAuth 回呼都會錯。
-ORIGIN=https://tales.alcloud.us
-PUBLIC_SITE_URL=https://tales.alcloud.us
+ORIGIN=https://urbantales.alcloud.us
+PUBLIC_SITE_URL=https://urbantales.alcloud.us
 
 # ── 其他 ───────────────────────────
 DATABASE_URL=              # postgres://urban_tales:…@127.0.0.1:5432/urban_tales
