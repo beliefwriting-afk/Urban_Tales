@@ -40,6 +40,20 @@ Environment=HOST=127.0.0.1
 Environment=PORT=3000
 Environment=NODE_ENV=production
 Environment=BODY_SIZE_LIMIT=65536
+#
+# ★ SHUTDOWN_TIMEOUT 一定要小於下面的 TimeoutStopSec，否則關機流程會排錯順序。
+#
+#   adapter-node 收到 SIGTERM 之後：先等現有連線收乾淨（這個秒數），
+#   等完才發出 `sveltekit:shutdown` 事件——而我們是在那個事件裡關資料庫連線池的。
+#   若 systemd 的逾時比較短，systemd 會在 adapter-node 還在等連線時就 SIGKILL，
+#   關閉連線池的程式碼根本輪不到執行。
+#
+#   ⚠️ 2026-09-03 實際踩過：預設 30 秒 vs TimeoutStopSec 20 秒，
+#      結果每次重啟都剛好等滿 20 秒被砍。
+#
+#   5 秒足夠：我們沒有長連線（不做串流、不做 WebSocket），
+#   最久的請求是 AI 對話的 8 秒逾時，而那條路徑本來就該被中斷重來。
+Environment=SHUTDOWN_TIMEOUT=5
 ExecStart=/usr/bin/node __APPDIR__/build
 
 Restart=always
@@ -49,6 +63,9 @@ RestartSec=5
 #   才被 SIGKILL（原因是資料庫連線池沒收，見 src/lib/server/db/index.ts）。
 #   那個根因已經修掉，這裡留 20 秒當第二道：日後若又有東西掛在事件迴圈上，
 #   部署會慢 20 秒而不是 90 秒，而且 journal 裡會留下 timeout 紀錄可以查。
+#
+#   ★ 這個值必須大於 SHUTDOWN_TIMEOUT（5）＋ 資料庫連線池的關閉逾時（5），
+#     否則保險絲會先燒掉，正常的關閉流程永遠跑不完。
 TimeoutStopSec=20
 StandardOutput=journal
 StandardError=journal

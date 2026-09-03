@@ -34,8 +34,12 @@ export const db = drizzle(client, { schema });
  * ★ 這個事件只有 adapter-node 的執行期會發出。開發模式與測試不會觸發，
  *   註冊了也沒有副作用——所以不需要用環境判斷把它包起來。
  */
-process.on('sveltekit:shutdown', async () => {
+process.on('sveltekit:shutdown', async (reason) => {
+	// ★ 這行 log 是刻意留的：關機流程出問題時，它是唯一能分辨
+	//   「事件沒發出」與「連線池關不掉」的線索。
+	//   2026-09-03 就是因為看不到它，才知道問題出在 systemd 比 adapter-node 早砍。
+	console.log(`[shutdown] ${reason} —— 關閉資料庫連線池`);
 	// timeout 5 秒：等進行中的查詢做完，逾時就強制關閉。
-	// 比 systemd 的 TimeoutStopSec 短，才輪得到我們自己收尾。
 	await client.end({ timeout: 5 });
+	console.log('[shutdown] 連線池已關閉');
 });
