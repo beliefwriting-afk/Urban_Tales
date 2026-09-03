@@ -28,12 +28,27 @@ import { readFileSync } from 'node:fs';
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:5173';
 const COOKIE = 'ut_player';
 
-/** 從 .env 撈一個值。刻意自己解析而不裝 dotenv —— 只為了一行設定不值得多一個依賴 */
+/**
+ * 撈一個設定值：先看行程的環境變數，再退回 `.env`。
+ *
+ * ★ 兩層是為了讓這支腳本在兩個地方都跑得動：
+ *     本機開發 —— 值在 `.env` 裡
+ *     正式 VM —— 沒有 `.env`，值在 /etc/urban-tales/urban-tales.env，
+ *                 由使用者 `source` 進環境變數後執行
+ *
+ * 刻意自己解析而不裝 dotenv —— 只為了一行設定不值得多一個依賴。
+ */
 function readEnv(key: string): string | null {
-	const line = readFileSync('.env', 'utf8')
-		.split(/\r?\n/)
-		.find((l) => l.trimStart().startsWith(`${key}=`));
-	return line ? line.slice(line.indexOf('=') + 1).trim() : null;
+	if (process.env[key]) return process.env[key];
+	try {
+		const line = readFileSync('.env', 'utf8')
+			.split(/\r?\n/)
+			.find((l) => l.trimStart().startsWith(`${key}=`));
+		return line ? line.slice(line.indexOf('=') + 1).trim() : null;
+	} catch {
+		// 沒有 .env 不是錯誤（正式環境本來就沒有）
+		return null;
+	}
 }
 
 /** 從一堆 Set-Cookie 裡找出我們那一張，回傳整段（含屬性） */
