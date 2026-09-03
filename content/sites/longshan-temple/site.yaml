@@ -1,0 +1,29 @@
+# 艋舺龍山寺
+#
+# ⚠️ 座標是從地圖上讀的近似值，**尚未實地量測**（P0-2）。
+# ⚠️ 這一站是三站中內容治理風險最高的（唯一的宗教場域）。
+#    企劃書 §4.2 的五條硬規則對它特別吃重，soul.yaml 的 taboos 也最長。
+
+id: longshan-temple
+
+name:
+  zhHant: 艋舺龍山寺
+  en: null
+  ja: null
+
+tagline:
+  zhHant: 塌過、燒過，每次都是附近的人湊錢蓋回來
+  en: null
+  ja: null
+
+geo:
+  lat: 25.0372
+  lng: 121.4997
+  radiusM: 50
+  sensingM: 150
+  extraCenters: []
+
+status: draft
+
+hasStory: true
+storyOrder: 2

@@ -18,16 +18,19 @@ geo:
   lat: 25.0000
   lng: 121.0000
   # 到場判定半徑（公尺，20–150）。★ P0 實地量測後才定案，見 SDD §5.5
+  # ★★★ 這個值永遠不進 API 回應 ★★★
   radiusM: 50
+  # 感應半徑（公尺）——進來才畫漣漪。必須大於 radiusM。這個值可以給前端
+  sensingM: 150
   # 長條形場域（如剝皮寮）可加額外判定圓心，任一命中即算到場
   extraCenters: []
   # extraCenters:
   #   - { lat: 25.0362, lng: 121.4999 }
 
-# 在像素地圖圖片上的位置（圖片的像素座標，不是經緯度）
-mapPos:
-  x: 0
-  y: 0
+# 完成度。★ 預設 draft ——「還沒寫完」的預設後果是玩家進不去，不是進去看到半成品。
+#   draft    = 只有這一份 site.yaml，地圖看得到但進不去
+#   playable = 五份齊全 ＋ 立繪就位，content:check 會對它強制所有內容規則
+status: draft
 
 # 是否有劇情層（P3，僅萬華三站）
 hasStory: false

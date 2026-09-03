@@ -76,13 +76,14 @@ type SiteBundle = {
 	fallbacks: z.infer<typeof FallbackSchema> | null;
 };
 
-const REQUIRED_FILES = [
-	'site.yaml',
-	'soul.yaml',
-	'materials.yaml',
-	'prompts.yaml',
-	'fallbacks.yaml'
-];
+/**
+ * 草稿站只要 site.yaml；宣告 playable 的站才要求五份齊全。
+ *
+ * ★ 判準是 site.yaml 裡的 `status`，不是「檔案缺不缺」。
+ *   少一個檔可能是手滑，`status: draft` 是一句聲明——聲明才擋得住
+ *   「不小心把半成品推上線」，推斷不行。
+ */
+const PLAYABLE_FILES = ['soul.yaml', 'materials.yaml', 'prompts.yaml', 'fallbacks.yaml'];
 
 const siteDirs = listDirs(SITES_DIR);
 const bundles: SiteBundle[] = [];
@@ -98,19 +99,30 @@ for (const dir of siteDirs) {
 		fallbacks: null
 	};
 
-	// #2 每個 site 都要有 soul / materials / prompts / fallbacks
-	for (const f of REQUIRED_FILES) {
-		if (!existsSync(join(base, f))) {
-			fail('#2 完整性', `${dir}/ 缺少 ${f} —— 缺一個就會在現場開天窗`);
-		}
-	}
-
 	const read = <T extends z.ZodType>(file: string, schema: T) =>
 		existsSync(join(base, file))
 			? validate(schema, loadYaml(join(base, file)), `${dir}/${file}`)
 			: null;
 
+	// site.yaml 一定要有——沒有它就連「這是不是一個景點」都不知道
+	if (!existsSync(join(base, 'site.yaml'))) {
+		fail('#2 完整性', `${dir}/ 缺少 site.yaml —— 沒有它連景點都不成立`);
+	}
+
 	b.site = read('site.yaml', SiteSchema);
+
+	// #2 宣告 playable 的站才要求其餘四份。草稿站進不去，不會在現場開天窗。
+	if (b.site?.status === 'playable') {
+		for (const f of PLAYABLE_FILES) {
+			if (!existsSync(join(base, f))) {
+				fail(
+					'#2 完整性',
+					`${dir}/ 宣告 playable 但缺少 ${f} —— 缺一個就會在現場開天窗。還沒寫完就先留 status: draft`
+				);
+			}
+		}
+	}
+
 	b.soul = read('soul.yaml', SoulSchema);
 	b.materials = read('materials.yaml', MaterialSchema);
 	b.prompts = read('prompts.yaml', GuidedPromptSchema);
@@ -148,6 +160,20 @@ for (const b of bundles) {
 		if (item.kind === '已知史實' && !item.source) {
 			fail('#3 出處', `${b.dir}/materials.yaml 的 "${item.id}" 標為已知史實但沒有 source`);
 		}
+	}
+}
+
+// ─── 檢查 #3b：感應半徑必須大於判定半徑 ──────────────────────
+// 反過來的話會出現「點得動但沒有漣漪」——玩家看不到任何提示卻進得去。
+
+for (const b of bundles) {
+	if (!b.site) continue;
+	const { radiusM, sensingM } = b.site.geo;
+	if (sensingM <= radiusM) {
+		fail(
+			'#3b 半徑',
+			`${b.dir} 的 sensingM(${sensingM}) 不大於 radiusM(${radiusM}) —— 會變成點得動卻沒有漣漪`
+		);
 	}
 }
 
@@ -211,7 +237,12 @@ for (const b of bundles) {
 //   所以它「自動啟用」：一旦 content/sites/ 有五站就開始強制。
 //   不是靜默跳過 —— 未啟用時會明確印出來，避免誤以為已經檢查過。
 
-if (siteDirs.length >= EXPECTED_SITE_COUNT) {
+const playableDirs = bundles.filter((b) => b.site?.status === 'playable').map((b) => b.dir);
+const draftDirs = bundles.filter((b) => b.site?.status !== 'playable').map((b) => b.dir);
+
+// ★ 用「可遊玩」站數而不是資料夾數：草稿站沒有卡片，拿它去湊 5 站
+//   會讓 #7 在內容還沒寫完時就開始強制，然後被當成雜訊關掉。
+if (playableDirs.length >= EXPECTED_SITE_COUNT) {
 	const list = cards?.cards ?? [];
 	if (list.length !== EXPECTED_CARDS.total) {
 		fail('#7 卡片', `卡片總數是 ${list.length}，應為 ${EXPECTED_CARDS.total}`);
@@ -224,7 +255,7 @@ if (siteDirs.length >= EXPECTED_SITE_COUNT) {
 	}
 } else {
 	notes.push(
-		`#7 卡片總數檢查【尚未啟用】：目前 ${siteDirs.length}/${EXPECTED_SITE_COUNT} 站，` +
+		`#7 卡片總數檢查【尚未啟用】：目前 ${playableDirs.length}/${EXPECTED_SITE_COUNT} 站可遊玩，` +
 			`五站齊備時自動開始強制 13 張（5 相遇 / 5 任務 / 3 劇情）。`
 	);
 }
@@ -250,8 +281,12 @@ function checkAsset(p: string | undefined, where: string) {
 }
 
 for (const b of bundles) {
-	checkAsset(b.soul?.art.portrait, `${b.dir}/soul.yaml art.portrait`);
-	const r = b.soul?.art.renderer;
+	// 草稿站可以還沒有立繪（那是 P0-1 的產出）；宣告 playable 就必須有。
+	if (b.site?.status === 'playable' && b.soul && b.soul.art === null) {
+		fail('#8 資產', `${b.dir} 宣告 playable 但 soul.yaml 沒有 art —— 玩家會看到一個空的角色`);
+	}
+	checkAsset(b.soul?.art?.portrait, `${b.dir}/soul.yaml art.portrait`);
+	const r = b.soul?.art?.renderer;
 	if (r?.kind === 'layered-png') checkAsset(r.layersDir, `${b.dir}/soul.yaml renderer.layersDir`);
 	if (r?.kind === 'live2d') checkAsset(r.modelPath, `${b.dir}/soul.yaml renderer.modelPath`);
 }
@@ -337,9 +372,27 @@ console.log(line);
 console.log(
 	`景點：${siteDirs.length} 站 ${siteDirs.length ? `(${siteDirs.join(', ')})` : '(尚未建立任何景點)'}`
 );
+console.log(`\u3000可遊玩：${playableDirs.length ? playableDirs.join(', ') : '（無）'}`);
+if (draftDirs.length > 0) {
+	// ★ 草稿站每次建置都要被唸出來。前身專案的教訓是「表建好了但沒人生產內容」，
+	//   對策不是禁止半成品存在，是不讓它安靜地存在。
+	console.log(`\u3000🚧 草稿（進不去）：${draftDirs.join(', ')}`);
+}
 console.log(`成就卡：${cards?.cards.length ?? 0} 張`);
 console.log(`全域護欄：${guardrails ? `${guardrails.rules.length} 條` : '❌ 缺少'}`);
 console.log('');
+
+for (const b of bundles) {
+	if (b.site?.status === 'playable') continue;
+	const missing = PLAYABLE_FILES.filter((f) => !existsSync(join(SITES_DIR, b.dir, f)));
+	if (missing.length > 0) {
+		notes.push(
+			`${b.dir} 還缺：${missing.join('、')}\u3000（補齊後把 site.yaml 的 status 改成 playable）`
+		);
+	} else {
+		notes.push(`${b.dir} 五份檔案都在了，但 status 還是 draft —— 審完就可以改成 playable`);
+	}
+}
 
 for (const n of notes) console.log(`ℹ️  ${n}`);
 if (notes.length) console.log('');

@@ -1,0 +1,29 @@
+# 剝皮寮歷史街區
+#
+# ⚠️ 座標是從地圖上讀的近似值，**尚未實地量測**（P0-2）。
+# ⚠️ 這是長條形街區，很可能需要 extraCenters（多個判定圓心，任一命中即算到場）。
+#    現在只放一個中心點，實地量測後八成要補。見 SDD §5.2。
+
+id: bopiliao
+
+name:
+  zhHant: 剝皮寮歷史街區
+  en: null
+  ja: null
+
+tagline:
+  zhHant: 它是被禁建禁下來的，不是被珍惜留下來的
+  en: null
+  ja: null
+
+geo:
+  lat: 25.0359
+  lng: 121.499
+  radiusM: 40
+  sensingM: 120
+  extraCenters: []
+
+status: draft
+
+hasStory: true
+storyOrder: 3

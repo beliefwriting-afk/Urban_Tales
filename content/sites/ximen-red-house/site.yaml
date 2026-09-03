@@ -1,0 +1,29 @@
+# 西門紅樓
+#
+# ⚠️ 座標是從地圖上讀的近似值，**尚未實地量測**（P0-2）。
+#    radiusM 也還是暫定值——真正的半徑要站在門口、對街、騎樓下各記一次
+#    GPS 讀數才知道要開多大。見 SDD §5.5。
+
+id: ximen-red-house
+
+name:
+  zhHant: 西門紅樓
+  en: null
+  ja: null
+
+tagline:
+  zhHant: 當過市場、戲院、書場，現在是個場子
+  en: null
+  ja: null
+
+geo:
+  lat: 25.0421
+  lng: 121.5069
+  radiusM: 50
+  sensingM: 150
+  extraCenters: []
+
+status: draft
+
+hasStory: true
+storyOrder: 1

@@ -1,0 +1,133 @@
+# 剝皮寮歷史街區 —— 地方故事素材庫
+#
+# 來源：轉自前身專案 City_Soul_AI 的 content/landmarks/bopiliao_historic_block.yaml。
+#
+# ⚠️ 兩個敏感點（soul.yaml 的 taboos 也擋著）：
+#    1. 一九九九年徵收搬遷的政策評價與責任歸屬 —— 不評價、不歸咎
+#    2. 「剝皮」地名由來 —— 民間說法並存，不裁定哪個才對
+#
+# ⚠️ 君和：這一份需要你逐字審。
+
+siteId: bopiliao
+
+items:
+  # ── 這條街的名字 ──────────────────────────────────────
+  - id: name-1763
+    kind: 已知史實
+    topic: 這條街的名字
+    text:
+      zhHant: 一七六三年的地契文書上第一次出現「北皮藔街」這個名字，那是這個聚落最早的官方史料依據。
+      en: null
+      ja: null
+    source: 臺北市政府文化局／古文書史料
+
+  - id: name-not-flaying
+    kind: 已知史實
+    topic: 這條街的名字
+    text:
+      zhHant: 文書上寫的是北皮藔、福皮藔，唸久了才變成剝皮寮。剝的從來不是人——沒有任何官方史料把這裡記載為刑場。
+      en: null
+      ja: null
+    source: 臺北市政府文化局／古文書史料
+
+  - id: name-folk-versions
+    kind: 民間傳說
+    topic: 這條街的名字
+    text:
+      zhHant: 「剝皮」到底是剝什麼，地方上聽過好幾種說法——剝樹皮、剝獸皮、單純是音轉。都只是說法，沒有哪一個算定論。
+      en: null
+      ja: null
+    source: null
+
+  # ── 街的形狀 ──────────────────────────────────────────
+  - id: qing-street-1799
+    kind: 已知史實
+    topic: 街的形狀
+    text:
+      zhHant: 清代這裡是艋舺往古亭庄之間的連棟店屋商路，叫福皮藔街，生意越做越熱鬧。
+      en: null
+      ja: null
+    source: 艋舺縣志／鄉土教育中心
+
+  - id: city-reform-1910
+    kind: 已知史實
+    topic: 街的形狀
+    text:
+      zhHant: 一九一〇到二二年的市區改正開了廣州街與康定路，舊街變成後巷，面街的店屋蓋起亭仔腳與巴洛克牌樓。
+      en: null
+      ja: null
+    source: 臺北市志／臺灣總督府官報
+
+  - id: two-eras-side-by-side
+    kind: 已知史實
+    topic: 街的形狀
+    text:
+      zhHant: 清代的紅磚土角厝、日治的洋樓、戰後的常民痕跡在這裡並排著。彎曲的巷弄紋理是清代縱貫道路留下來的。
+      en: null
+      ja: null
+    source: 臺北市都市計畫沿革／鄉土教育中心展示史料
+
+  # ── 為什麼還在 ────────────────────────────────────────
+  - id: frozen-by-ban
+    kind: 已知史實
+    topic: 為什麼還在
+    text:
+      zhHant: 一九四一到四五年因為劃入老松國小的擴建預定地，這裡實施嚴格禁建，街廓就這樣被凍住了。它是被禁建禁下來的，不是被珍惜留下來的。
+      en: null
+      ja: null
+    source: 臺北市都市計畫沿革
+
+  - id: preservation-1998
+    kind: 已知史實
+    topic: 為什麼還在
+    text:
+      zhHant: 有意識的保存要到一九九八年——居民與文史工作者組了促進會，搶救舊街巷。珍惜是後來的事。
+      en: null
+      ja: null
+    source: 台灣文化資產保存運動史料
+
+  - id: expropriation-1999
+    kind: 已知史實
+    topic: 為什麼還在
+    text:
+      zhHant: 一九九九到二〇〇三年完成居民徵收搬遷，成立歷史風貌特定區，開始修復再利用。二〇一〇年正式登錄為歷史建築。
+      en: null
+      ja: null
+    source: 臺北市政府文化局公告／文化部文化資產局
+
+  # ── 在這裡討生活的人 ──────────────────────────────────
+  - id: coal-market-1880s
+    kind: 已知史實
+    topic: 在這裡討生活的人
+    text:
+      zhHant: 一八八〇年代康定路與廣州街口是木炭、煤炭的交易集散地，大家叫它「土炭市」。
+      en: null
+      ja: null
+    source: 萬華區誌／地方采風錄
+
+  - id: printing-1920s
+    kind: 已知史實
+    topic: 在這裡討生活的人
+    text:
+      zhHant: 一九二〇年代太陽製本所這類裝訂與印刷廠進駐，這裡是萬華印刷出版產業的發源地之一。
+      en: null
+      ja: null
+    source: 鄉土教育中心展示史料
+
+  - id: teahouse-1940s
+    kind: 已知史實
+    topic: 在這裡討生活的人
+    text:
+      zhHant: 一九四〇到七〇年代「茶桌仔店」興起，秀英茶室、長壽號這些地方是做工的人聚會的所在——談生意也談政治，消息在那裡傳開。
+      en: null
+      ja: null
+    source: 剝皮寮口述歷史調查報告
+
+  - id: lodging-1950s
+    kind: 已知史實
+    topic: 在這裡討生活的人
+    text:
+      zhHant: 一九五〇年代有「販仔間」——日祥旅社那一類，給來臺北打拼的苦力、搬運工與外地商販住的便宜地方。
+      en: null
+      ja: null
+    source: 鄉土教育中心導覽資料

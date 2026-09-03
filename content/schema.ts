@@ -39,8 +39,20 @@ export const SiteSchema = z.object({
 	geo: z.object({
 		lat: z.number(),
 		lng: z.number(),
-		/** 到場判定基礎半徑（公尺）。P0 實地量測後定案，見 SDD §5.5 */
+		/**
+		 * 到場判定基礎半徑（公尺）。P0 實地量測後定案，見 SDD §5.5。
+		 * ★★★ 這個值**永遠不進 API 回應**。★★★ 它是「要走多近才算到」，
+		 *     是偽造座標的人唯一猜不到的東西（SDD 附錄 D 的改寫說明）。
+		 */
 		radiusM: z.number().min(20).max(150),
+
+		/**
+		 * 感應半徑（公尺）——進來才畫漣漪，告訴玩家「這裡有東西」。
+		 *
+		 * 這個值**可以**給前端：它不參與到場判定，猜到也換不到任何能力。
+		 * 必須大於 radiusM，否則會出現「點得動但沒有漣漪」的矛盾狀態。
+		 */
+		sensingM: z.number().min(50).max(500).default(150),
 		/**
 		 * 長條形場域（如剝皮寮）可設多個判定圓心，任一命中即算到場。
 		 * 留空則只用上面的 lat/lng。
@@ -48,8 +60,23 @@ export const SiteSchema = z.object({
 		extraCenters: z.array(z.object({ lat: z.number(), lng: z.number() })).default([])
 	}),
 
-	/** 在像素地圖上的位置（地圖圖片的像素座標） */
-	mapPos: z.object({ x: z.number(), y: z.number() }),
+	/**
+	 * 完成度。**明確宣告，不從「檔案缺不缺」推斷。**
+	 *
+	 *   draft    ＝ 只有 site.yaml。提供地圖圖釘與距離判定要用的地理資料，
+	 *              但**進不去**——沒有靈魂可以召喚，`/api/site/:id/enter` 一律拒絕。
+	 *   playable ＝ 五份齊全、立繪就位，可遊玩。
+	 *
+	 * ★ 為什麼要這個欄位，而不是看「五個檔案齊不齊」：
+	 *   資料夾少一個檔可能是手滑，寫著 `status: draft` 是一句聲明。
+	 *   而且 content:check 會把草稿站列出來，「還沒寫完」因此變成一個
+	 *   系統知道、而且每次建置都會講出來的狀態——不是靜靜地通過。
+	 *
+	 * ⚠️ 預設是 draft。要讓一站上線必須主動把它改成 playable，
+	 *   那一刻所有內容規則才會對它生效。**新增景點的預設狀態是「不可遊玩」**，
+	 *   這個方向是刻意的：漏掉宣告的後果是玩家進不去，不是進去看到半成品。
+	 */
+	status: z.enum(['draft', 'playable']).default('draft'),
 
 	/** 是否有劇情層（P3） */
 	hasStory: z.boolean().default(false),
@@ -78,15 +105,26 @@ export const SoulSchema = z.object({
 		taboos: z.array(LocalizedText).default([])
 	}),
 
-	art: z.object({
-		/** L2 / L3 / 卡面共用的立繪（非像素） */
-		portrait: z.string(),
-		/** 分層 PNG 路線填圖層目錄；Live2D 路線填 model 路徑。見 SDD §9.4 */
-		renderer: z.discriminatedUnion('kind', [
-			z.object({ kind: z.literal('layered-png'), layersDir: z.string() }),
-			z.object({ kind: z.literal('live2d'), modelPath: z.string() })
-		])
-	})
+	/**
+	 * 立繪與渲染方式。
+	 *
+	 * ⚠️ **可以是 null，但只有草稿站可以。** 角色美術是 P0-1 的產出，
+	 *   在那之前人格卡就該先寫好——文字與圖是兩條可以平行的軌道，
+	 *   不該互相擋路。content:check 會強制「playable 的站 art 不得為 null」，
+	 *   所以這個 null 逃不到正式環境去。
+	 */
+	art: z
+		.object({
+			/** L2 / L3 / 卡面共用的立繪（非像素） */
+			portrait: z.string(),
+			/** 分層 PNG 路線填圖層目錄；Live2D 路線填 model 路徑。見 SDD §9.4 */
+			renderer: z.discriminatedUnion('kind', [
+				z.object({ kind: z.literal('layered-png'), layersDir: z.string() }),
+				z.object({ kind: z.literal('live2d'), modelPath: z.string() })
+			])
+		})
+		.nullable()
+		.default(null)
 });
 export type Soul = z.infer<typeof SoulSchema>;
 
