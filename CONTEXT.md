@@ -116,7 +116,7 @@ src/lib/server/soul/speak.ts    ← 唯一可以 import AI client 的檔案
 ## 目前狀態
 
 **階段**：✅ 骨架、P0-4、介面展示、地圖圖層、**後端前三支端點**都完成。
-🔄 **正在搬到 GCP（尚未部署）。** ⚠️ P0-5 要重做（換 AI 供應商）。
+✅ **已上線：https://urbantales.alcloud.us** ⚠️ P0-5 要重做（換了 AI 供應商）。
 
 **細節與下一步請看 `HANDOFF.md`。** 摘要：
 
@@ -140,8 +140,9 @@ src/lib/server/soul/speak.ts    ← 唯一可以 import AI client 的檔案
 12. ✅ **後端開工**（2026-08-29～09-03）：訪客身分、`GET /api/sites`、`POST /api/presence`
     ＋ 展示模式三支端點完成，51 條單元測試 ＋ `npm run smoke:api` 端到端檢查。
     三站內容（人格卡、素材庫）從前身專案轉過來了。**詳見 HANDOFF §13**
-13. 🔄 **從 Zeabur 搬到 GCP**（2026-09-03，資安考量）：`deploy/` 五個檔案寫好，
-    **但還沒實際部署**——VM 還沒建。步驟見 `deploy/README.md`，待辦見 HANDOFF §13.8
+13. ✅ **搬到 GCP 並上線**（2026-09-03，資安考量）：**https://urbantales.alcloud.us**
+    GCP 專案 `larp-507213`／e2-small／自架 PostgreSQL（只綁 loopback）／Gemini 直連。
+    21 條煙霧測試對正式站全綠。踩到的三個坑見 HANDOFF §13.9
 14. ⬜ 之後：切片 4–7（enter／chat／快門圖鑑／前端接上）、P0-1（角色動畫）、
     P0-2（實地量測，**已解鎖**）、P0-3（相機合成）、地圖色調
 

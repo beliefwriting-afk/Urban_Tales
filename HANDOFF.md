@@ -593,8 +593,9 @@ SDD §5.4 的「自訂位置」以前只是文件。現在**展示模式下長�
 
 ## 13. 後端開工（2026-08-29 ～ 09-03）
 
-> 這一輪做了兩件事：**後端前三支端點**，以及**從 Zeabur 搬到 GCP**。
-> 兩件事都還沒實際部署過——寫完了、測過了，但 VM 還沒建。
+> 這一輪做了三件事：**後端前三支端點**、**從 Zeabur 搬到 GCP**、**實際上線**。
+>
+> **線上網址：https://urbantales.alcloud.us**（2026-09-03 上線，21 條煙霧測試全綠）
 
 ### 13.1 先看了前身專案的後端
 
@@ -715,7 +716,8 @@ SDD 附錄 D 已改寫並附上失效理由。
 **原因**：君和說 Zeabur 有資安危機。順帶關掉一個既有的面——Zeabur 的託管 PostgreSQL
 掛在公開 TCP 連接埠上（`43.133.167.62:31166`），全世界都連得到，只靠密碼擋。
 
-**做法照君和自己的 Roku 專案**（`Desktop\Roku_AI`，LINE bot，已在 GCP 跑）。
+**做法照君和自己的兩個專案**（`Desktop\Roku_AI` 與 `Desktop\LARP_AI`，都已在 GCP 跑；
+LARP 那份 `GCP_遷移設定教學.md` 是「第二次搬」的版本，寫得比 Roku 那份更細）。
 新增 `deploy/` 五個檔案：`bootstrap.sh`（218 行，冪等，九步）、`urban-tales.service`、
 `nginx-urban-tales.conf`、`env.example`、`README.md`。
 
@@ -743,27 +745,93 @@ SDD 附錄 D 已改寫並附上失效理由。
 上線後才發現。所以 `AI_MODEL_PRIMARY` 必須是 flash-lite 那一級。
 **這不是省錢考量，是能不能用的問題。** 而且我們比 LINE bot 更禁不起慢：玩家站在廟口等。
 
-### 13.8 🔜 下一步
+### 13.8 ✅ 上線了（2026-09-03）
 
-**立刻要做的（部署前）**：
+**https://urbantales.alcloud.us** —— 憑證到 2026-12-02，certbot 自動續約。
 
-1. `npm run db:generate` 產生 migration 檔並進版控（正式環境用 `db:migrate` 不用 `push`）
-2. 本機 `.env` 把 `AIHUB_*` 改成 `AI_*` ——**現在讀不到會安靜退回 mock 模式**
-3. Cloudflare 加 A 記錄 `tales`（灰色雲朵）
-4. GCP 建 VM（e2-small / us-central1 / Ubuntu 24.04 / **平衡永久磁碟** / 靜態 IP / HTTP+HTTPS）
-5. `bash deploy/bootstrap.sh urbantales.alcloud.us`
+| 項目 | 值 |
+|---|---|
+| GCP 專案 | `larp-507213`（與謎案迴聲同專案，us-central1-a） |
+| VM | `urbantales`／e2-small／Ubuntu 24.04／平衡永久磁碟 20GB |
+| 外部 IP | `34.41.151.184`（靜態，`urbantales2`） |
+| 登入 | 帳號 `al06120001`，金鑰 `C:\Users\erics\.ssh\gcp_larp` |
+| 環境變數 | `/etc/urban-tales/urban-tales.env`（640 root:al06120001） |
 
-**部署後**：
+**為什麼建在 larp 專案裡**：GCP 對「一個帳單帳戶能綁幾個專案」有配額，君和的已經滿了。
+同專案只共用帳單／SSH 金鑰／VPC，**VM、磁碟、IP、nginx、憑證、服務全都各自獨立**。
 
-- **P0-5 重做**：Gemini 直連的延遲、成本模型、`cached_tokens` 是否回報。連模型一起量。
-- 切片 4：`POST /api/site/:id/enter`（草稿站要拒絕，那正是要測的行為）
-- 切片 5：`POST /api/chat` ＋ `speak()` 九步 —— **這一支需要至少一站的 `prompts.yaml` 與 `fallbacks.yaml`**
-- 切片 6：快門回報 ＋ 圖鑑
-- 切片 7：前端 `mock/session.svelte.ts` 換成真 API（UI 元件一行不動）
+日常部署與煙霧測試的指令見 `deploy/README.md`。
+
+### 13.9 ⚠️ 上線那天踩到的三個坑
+
+**① 關機順序：`SHUTDOWN_TIMEOUT` 必須小於 `TimeoutStopSec`。錯了兩次才對。**
+
+adapter-node 收到 SIGTERM 的流程是：**先等現有連線收乾淨（預設 30 秒），
+等完才發出 `sveltekit:shutdown` 事件**——而關閉資料庫連線池的程式碼掛在那個事件上。
+
+| 嘗試 | 結果 |
+|---|---|
+| 原始設定 | 等滿 **90 秒**（systemd 預設）被 SIGKILL。根因：postgres-js 連線池掛在事件迴圈上，`server.close()` 之後行程仍不退出 |
+| 加 `TimeoutStopSec=20` | 等滿 **20 秒**被砍。**因為 20 < 30，systemd 在 adapter-node 還在等連線時就砍了，關連線池的程式碼根本輪不到執行** |
+| 再加 `SHUTDOWN_TIMEOUT=5` | **0.06 秒**，`Deactivated successfully` |
+
+`src/lib/server/db/index.ts` 的 `sveltekit:shutdown` 處理器裡留了兩行 log
+（`[shutdown] SIGTERM —— 關閉資料庫連線池` / `[shutdown] 連線池已關閉`）。
+**關機出問題時那是唯一能分辨「事件沒發出」與「連線池關不掉」的線索，不要刪。**
+
+**② 掃描器會建立玩家。上線十一分鐘就多了 18 列。**
+
+公開 IP 每天都被戳 `/about`、`/login.action`、`/.env`、`/.git/config`……
+那些路徑不存在、回 404，但只要帶著 `Accept: text/html` 就會通過 `needsIdentity`
+拿到一張 cookie 與一列玩家。
+
+解法：`hooks.server.ts` 用 `event.route.id === null` 擋掉——比對不到任何路由
+＝這個請求最後會是 404，那種請求不該在資料庫留下任何東西。
+**刻意不寫進 `needsIdentity`**：那是純函式，看不到路由表，硬塞就得複製一份路由清單給它維護。
+
+**③ 同一條規則在兩個環境的預期可能相反。**
+
+`smoke:api` 有兩條檢查在正式站會失敗，但**伺服器的行為是對的**：
+
+- `x-ut-identity` 是 dev 專用的除錯 header，正式環境不發是設計（回應 header 是公開資訊）
+- `Secure` 在 https 下**必須**有、在 http 下**必須**沒有（程式碼是 `secure: !dev` 一行）
+
+腳本現在用 `isProd` 讓斷言跟著協定翻轉。**寫測試時要問「這條在正式環境的預期一樣嗎」。**
+
+### 13.10 🔜 下一步（給接手的對話）
+
+**⚠️ 開發環境現在是壞的。** 本機 `.env` 的 `DATABASE_URL` 還指向已經停用的 Zeabur。
+要恢復開發，開一條 SSH 通道：
+
+```
+ssh -i C:\Users\erics\.ssh\gcp_larp -N -L 55432:127.0.0.1:5432 al06120001@34.41.151.184
+```
+
+本機 `.env` 改成
+`DATABASE_URL=postgres://urban_tales:<密碼>@127.0.0.1:55432/urban_tales`
+（密碼在 VM 上 `sudo grep DATABASE_URL /etc/urban-tales/urban-tales.env`）。
+
+⚠️ 那是**正式資料庫**。有真玩家之前可以這樣做，之後要另開 `urban_tales_dev`，
+而且不能再跑 `smoke:api -- --purge`（會清 players 表）。
+
+**接著的切片**：
+
+- **切片 4** `POST /api/site/:id/enter` —— 進入景點發相遇卡。草稿站要拒絕，那正是要測的行為
+- **切片 5** `POST /api/chat` ＋ `speak()` 九步 —— 最大的一塊。
+  **這一支需要至少一站的 `prompts.yaml`（12 題）與 `fallbacks.yaml`（四種情境）**，
+  而那兩份**只有君和能寫**（企劃書 §4.3：措辭即成品，需逐字審）
+- **切片 6** 快門回報 ＋ 圖鑑
+- **切片 7** 前端 `mock/session.svelte.ts` 換成真 API（UI 元件一行不動）
+- **P0-5 重做** —— 換 Gemini 之後延遲與成本模型都要重量，**連模型一起量**（見 §13.7 的 thinking level 陷阱）
+- **P0-1** 角色動畫、**P0-2** 實地量測（座標現在還是地圖上讀的近似值）
 
 **還沒做、但有真玩家之前一定要做的**：
 
-- **資料庫備份**。現在完全沒有。照 Roku 的做法：每日 `pg_dump` ＋ 傳 Google Drive ＋ 保留幾份。
-- **開發用資料庫**。現在開發直接連正式庫，而 `smoke:api -- --purge` 會清 players 表。
-- **90 天換 Google 帳號的 SOP**。Roku 有一份，兩個坑：靜態 IP 要沿用不要新建
-  （孤兒 IP 未使用時收費更貴，約 $7/月）；重建要用同一個帳號跑 bootstrap。
+- **資料庫的邏輯備份**。GCP 有每日磁碟快照，但那是 crash-consistent、只能整台還原、
+  看不到內容；`pg_dump` 才能單表還原、才讀得懂。
+- **展示模式的 UI 標示**。SDD §5.4 要求全程顯示標示條、成就卡標註「展示模式取得」，
+  現在只有伺服器端判定，前端還沒做。
+- **90 天換 Google 帳號的 SOP**。Roku 與 LARP 各有一份。
+
+**已知的小事**：`MapLayer.svelte:331` 的地圖 div 有 pointer 事件但沒有 ARIA role，
+每次建置都會警告。補個 `role="application"` 就好，還沒動是因為它會改到 UI，想跟實機驗收一起做。
