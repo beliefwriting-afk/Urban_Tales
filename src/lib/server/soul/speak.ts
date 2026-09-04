@@ -11,8 +11,6 @@
  *
  * ⚠️ 這是本專案最重要的一個檔案。動它之前先讀 SDD §6.1–§6.6。
  */
-import type { GuidedPrompt } from '../../../../content/schema';
-
 export type PresenceMode = 'field' | 'demo';
 
 export type SpeakContext = {
@@ -38,8 +36,16 @@ export type SpeakResult = {
 	text: string;
 	isFallback: boolean;
 	fallbackReason?: FallbackReason;
-	/** 下一批引導提問 */
-	nextPrompts: GuidedPrompt[];
+
+	// ⚠️ 【2026-09-04 移除】原本這裡有 `nextPrompts: GuidedPrompt[]`——「下一批引導提問」。
+	//
+	//   引導提問改成**每站恰好三題、寫死**之後，沒有「下一批」這回事：
+	//   前端在 `/api/site/:id/enter` 就拿到那三題，之後每一輪都是同樣三題，
+	//   伺服器不必再回一次。
+	//
+	//   少回一個欄位 ＝ 少一份會跟內容層漂移的東西。
+	//   理由與連帶移除的機制見 SDD §6.4（T5）與 content/schema.ts 的
+	//   GuidedPromptSchema 說明。
 };
 
 /**

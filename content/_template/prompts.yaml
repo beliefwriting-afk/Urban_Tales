@@ -1,24 +1,42 @@
-# 引導提問池範本 —— content/sites/<site-id>/prompts.yaml
+# 引導提問範本 —— content/sites/<site-id>/prompts.yaml
 #
-# ★ 每站至少 12 題（content:check #5 會擋）。
-#   重複感是玩家判定「這是機器人」的主因（企劃書 §5.3）。
-# ★ 每題的 topic 都必須在 materials.yaml 找得到，
-#   否則會發生「問了但角色答不出來」。
+# ★★★ 每站**恰好 3 題**，寫死，不挑選、不輪替。★★★
+#   多寫少寫都會被 content:check #5 擋下來——L2 的版面是固定三個按鈕，
+#   多出來的沒地方放，少一個會開天窗。
+#
+# 【2026-09-04 改版】原本是「≥ 12 題，分 opening／followup／safety 三個 tier、
+# 每題對到一個 materials topic，由 pickPrompts() 依對話進度挑」。整套拿掉了。
+# 理由見 content/schema.ts 的 GuidedPromptSchema 說明——一句話：沒有回訪機制，
+# 12 題的池子換來的是「九成題目玩家永遠看不到，但一樣要逐字審」。
+#
+# ★ 這三題是**玩家卡住時的起手式**，不是主要互動。按下去等同他自己打字送出，
+#   直接進入對話流程，**不繞過任何安全檢查與用量控制**（企劃書 §5.3）。
+#
+# ⚠️ 建議 15 字以內。這不是美感問題：它是可直接點擊送出的按鈕，長了排不下。
+#   前身專案是先做長句、撞到版面之後才改短的。超過 15 字 content:check 會警告
+#   （只警告不擋——中文字數不好定義，定不清楚的規則寫死只會製造假的安全感）。
+#
+# ⚠️ 這三題仍然是**內容**，要逐字審（企劃書 §4.3：措辭即成品）。
+#   寫的時候想一件事：**玩家點下去之後，靈魂答得出來嗎？**
+#   素材庫（materials.yaml）沒有的東西，不要拿來當提問。
 
 siteId: your-site-id
 
 items:
-  # tier：
-  #   opening  = 一進 L2 就出現
-  #   followup = 聊到相關主題才進候選池
-  #   safety   = 保底，其他都用完時拿出來
   - id: q1
     text:
       zhHant: 這裡以前是什麼樣子？
       en: null
       ja: null
-    topic: 建築
-    tier: opening
-    triggerTopics: []
 
-  # …照這個格式補到至少 12 題
+  - id: q2
+    text:
+      zhHant: 這個形狀有什麼講究？
+      en: null
+      ja: null
+
+  - id: q3
+    text:
+      zhHant: 大家為什麼在這裡停下來？
+      en: null
+      ja: null

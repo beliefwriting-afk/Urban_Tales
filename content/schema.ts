@@ -130,45 +130,119 @@ export type Soul = z.infer<typeof SoulSchema>;
 
 // ─── 地方故事素材庫 ───────────────────────────────────────────
 
-/** ★ 企劃書 §4.2 第 5 條：必須區分知識性質 */
-export const MaterialKind = z.enum(['已知史實', '民間傳說', '角色想像']);
-export type MaterialKind = z.infer<typeof MaterialKind>;
-
+/**
+ * ★★★ 這是靈魂「知道的事」的全部來源。★★★
+ *
+ * 【2026-09-04 改版】原本是一個 `items` 陣列，每條標 `kind`（已知史實／民間傳說／
+ * 角色想像）＋ `topic`。改成現在的兩塊：**一段史實 ＋ 幾條傳說單列**。
+ *
+ * ★ 為什麼改：君和寫內容時是「一站寫一段」，不是「一站列十三條」。
+ *   條目制逼他把一段連貫的敘述切碎成沒有上下文的句子，而 AI 拿到那些碎片
+ *   反而更難講成一段像人說的話。
+ *
+ * ★ 為什麼**不**乾脆合成一整段就好——`legends` 必須分開：
+ *
+ *   企劃書 §4.2 第 5 條要求區分「已知史實／民間傳說」。那個區分不是分類癖，
+ *   它決定靈魂**用什麼語氣講一句話**：
+ *
+ *     facts   → 可以講得斬釘截鐵（「一九〇八年落成，近藤十郎設計」）
+ *     legends → 必須留活口（「有一種說法是⋯⋯，也有人說⋯⋯」）
+ *
+ *   混成一段的話，「八卦祈福、十字架鎮邪」跟「文化局的古蹟公告」在模型眼裡
+ *   長得一樣，它會用同一種語氣講出來。**剝皮寮的「剝皮」由來是必踩的那一題。**
+ *
+ * ★ 「角色想像」那一類移出去了——它不是素材，是**權限**。
+ *   「這個靈魂可以描述哪些沒被記錄下來的東西」定義在 `SoulSchema.persona.knows`
+ *   與人格卡的想像權限，不在素材庫裡。素材庫只放「外面查得到的事」。
+ */
 export const MaterialSchema = z.object({
 	siteId: z.string(),
-	items: z.array(
-		z.object({
-			id: z.string(),
-			kind: MaterialKind,
-			/** 供引導提問對應（content:check #4 會比對） */
-			topic: z.string(),
-			text: LocalizedText,
-			/** 史實類必填出處。content:check #3 會強制檢查 */
-			source: z.string().nullable().default(null)
-		})
-	)
+
+	/**
+	 * ★ 一段史實。**整段會逐字進 system prompt**（SDD §6.2）。
+	 *
+	 * 寫法建議：寫成連貫的敘述，不要寫成條列。模型比較會把連貫的段落
+	 * 講成連貫的話；條列進去，出來也像條列。
+	 */
+	facts: LocalizedText,
+
+	/**
+	 * 上面那段史實的出處，至少一個。
+	 *
+	 * ★ 為什麼是陣列而不是單一字串：一段史實通常跨好幾個來源
+	 *   （文化局公告 ＋ 建築研究 ＋ 電影資料庫）。逼成一個字串的話，
+	 *   人會開始用頓號串起來，那就等於沒有結構。
+	 *
+	 * ⚠️ 出處**不會**進 prompt，也不會給玩家看。它存在的理由只有一個：
+	 *   讓審這份內容的人（君和）查得到每一句話是從哪來的。
+	 */
+	sources: z.array(z.string().min(1)).min(1),
+
+	/**
+	 * 民間傳說、地名由來的各種說法、對形狀的象徵解釋⋯⋯
+	 * **凡是「有人這樣說，但沒有定論」的，放這裡。**
+	 *
+	 * 可以是空的（不是每一站都有傳說），但空的要是刻意的——
+	 * `content:check` 會把沒有 legends 的站列出來讓人再想一次。
+	 */
+	legends: z
+		.array(
+			z.object({
+				id: z.string(),
+				text: LocalizedText,
+				/** 傳說可以沒有出處，那正是它是傳說的原因 */
+				source: z.string().nullable().default(null)
+			})
+		)
+		.default([])
 });
 export type Material = z.infer<typeof MaterialSchema>;
 
 // ─── 引導提問 ────────────────────────────────────────────────
 
+/**
+ * ★★★ 每站**恰好 3 題**，寫死，不挑選、不輪替。★★★
+ *
+ * 【2026-09-04 改版】原本是「每站 ≥ 12 題，分 opening／followup／safety 三個 tier，
+ * 每題對到一個 materials topic，由 pickPrompts() 依對話進度挑」。整套拿掉了。
+ *
+ * ★ 為什麼可以拿掉（企劃書 §5.3 原本要 12 題的理由是「重複感是『這是機器人』的主因」）：
+ *
+ *   那條理由成立的前提是**玩家會反覆看到這些提問**。但本專案：
+ *     · 沒有回訪機制（CONTEXT 明文推翻），一趟就拿完一個景點的卡
+ *     · 引導提問是「玩家卡住時的起手式」，不是主要互動——按下去之後就進自由對話了
+ *     · 只做三站，一個玩家總共看到 9 題
+ *
+ *   在這個形狀下，12 題的池子換來的不是「不重複」，是「九成的題目玩家永遠看不到」，
+ *   而那九成一樣要逐字審（企劃書 §4.3：措辭即成品）。**成本全付，好處沒拿到。**
+ *
+ * ★ 為什麼是 `.length(3)` 而不是 `.min(3)`：
+ *   L2 的版面是固定三個按鈕。允許多寫的話，前端就得決定「多出來的怎麼辦」
+ *   （隨機抽三個？滾動？）——那就是把剛拿掉的挑題邏輯又請回來。
+ *   **恰好三題讓「多寫了」在建置時就被擋下來，而不是上線才發現版面破了。**
+ *
+ * ⚠️ 這三題仍然是**內容**，要逐字審。點下去等同玩家自己打字送出，
+ *   不繞過任何安全檢查與用量控制（企劃書 §5.3）。
+ */
 export const GuidedPromptSchema = z.object({
 	siteId: z.string(),
 	items: z
 		.array(
 			z.object({
 				id: z.string(),
-				text: LocalizedText,
-				/** 對應到 materials 的 topic，用於挑選與去重 */
-				topic: z.string(),
-				/** opening=開場即出現; followup=聊到相關主題才出現; safety=保底 */
-				tier: z.enum(['opening', 'followup', 'safety']),
-				/** 僅在對話中出現過這些關鍵詞時才進候選池 */
-				triggerTopics: z.array(z.string()).default([])
+				/**
+				 * ⚠️ 建議 15 字以內。
+				 *
+				 * 這不是美感問題：UI 上它是可直接點擊送出的按鈕，長了排不下。
+				 * 前身專案是先做長句、撞到版面之後才改成短提問的
+				 * （見 `City_Soul_AI_對話素材盤點.md` 附錄 B 第 2 條）。
+				 * 沒有做成 schema 強制，因為中文全形與標點的「字數」不好定義，
+				 * 而定不清楚的規則寫進 schema 只會製造假的安全感。
+				 */
+				text: LocalizedText
 			})
 		)
-		/** ★ 每站至少 12 題。重複感是「這是機器人」的主因（企劃書 §5.3） */
-		.min(12)
+		.length(3)
 });
 export type GuidedPromptFile = z.infer<typeof GuidedPromptSchema>;
 export type GuidedPrompt = GuidedPromptFile['items'][number];

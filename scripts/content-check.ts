@@ -152,14 +152,39 @@ if (existsSync(cardsPath)) {
 	cards = validate(CardsFileSchema, loadYaml(cardsPath), 'cards.yaml');
 }
 
-// ─── 檢查 #3：史實類素材必填出處 ─────────────────────────────
-// 落實企劃書 §4.2 第 5 條。
+// ─── 檢查 #3：史實必填出處，傳說要單列 ───────────────────────
+//
+// 落實企劃書 §4.2 第 5 條。【2026-09-04 改判準】素材庫從「一個 items 陣列、
+// 每條標 kind」改成「一段 facts ＋ 幾條 legends」之後，這條規則的形狀跟著換：
+//
+//   舊：逐條檢查 kind === '已知史實' 的有沒有 source
+//   新：整段 facts 至少要有一個 sources；傳說歸 legends，本來就不必有出處
+//
+// ★ sources 的 min(1) 由 schema 負責，這裡補兩件 schema 做不到的事：
+//   ① 出處不能是空白字串以外的敷衍值（「網路」「維基」這種等於沒寫）
+//   ② facts 裡出現「有一種說法」「據說」「相傳」時提醒——那八成該搬去 legends
 
 for (const b of bundles) {
-	for (const item of b.materials?.items ?? []) {
-		if (item.kind === '已知史實' && !item.source) {
-			fail('#3 出處', `${b.dir}/materials.yaml 的 "${item.id}" 標為已知史實但沒有 source`);
+	if (!b.materials) continue;
+
+	for (const src of b.materials.sources) {
+		if (/^(網路|網路上|維基|wiki|google|估狗|聽說|大家都知道)$/i.test(src.trim())) {
+			fail(
+				'#3 出處',
+				`${b.dir}/materials.yaml 的 source "${src}" 等於沒寫 —— ` +
+					`出處要能讓審的人真的查得到（機關公告、館方紀錄、研究文獻）`
+			);
 		}
+	}
+
+	const hedge = /有一種說法|有人說|據說|相傳|傳說|一說/;
+	const zh = b.materials.facts.zhHant;
+	if (hedge.test(zh)) {
+		warn(
+			'#3 出處',
+			`${b.dir}/materials.yaml 的 facts 出現「有一種說法／據說／相傳」這類措辭 —— ` +
+				`那通常表示那句話該搬到 legends。facts 是可以講得斬釘截鐵的部分`
+		);
 	}
 }
 
@@ -177,28 +202,59 @@ for (const b of bundles) {
 	}
 }
 
-// ─── 檢查 #4：引導提問的 topic 都要有對應素材 ────────────────
-// 避免問了但角色答不出來。
+// ─── 檢查 #4：民間傳說要有，或者明確地沒有 ───────────────────
+//
+// ⚠️ 【2026-09-04 改寫】這一條原本是「引導提問的 topic 都要有對應素材」。
+//    `topic` 欄位隨著挑題邏輯一起移除了（見 content/schema.ts 的說明），
+//    那條規則因此失去依據。**編號沒有重用**——舊的 #4 在 SDD §2.4 有紀錄，
+//    重用會讓「#4 是什麼」在兩份文件裡有兩個答案。
+//
+// 新的 #4 守的是另一件事：**空的 legends 必須是刻意的。**
+//    幾乎每個有年代的地方都有說不清的傳說（剝皮寮的地名由來、紅樓的八卦形狀）。
+//    legends 是空的通常不是「這裡沒有傳說」，是「還沒去想」。
+//    這裡不擋建置，只把它唸出來——同 #7 的作法，不讓它安靜地存在。
 
 for (const b of bundles) {
-	const topics = new Set((b.materials?.items ?? []).map((m) => m.topic));
-	for (const p of b.prompts?.items ?? []) {
-		if (!topics.has(p.topic)) {
-			fail(
-				'#4 對應',
-				`${b.dir}/prompts.yaml 的 "${p.id}" topic="${p.topic}" 在 materials 找不到對應素材`
-			);
-		}
+	if (!b.materials) continue;
+	if (b.materials.legends.length === 0) {
+		notes.push(
+			`#4 傳說：${b.dir} 的 legends 是空的。確認過「這一站真的沒有說不清的說法」就好，` +
+				`但空著通常表示還沒想過（地名由來、形狀的象徵解釋、誰蓋的⋯⋯）。`
+		);
 	}
 }
 
-// ─── 檢查 #5：每站引導提問 ≥ 12 題 ───────────────────────────
-// 由 schema 的 .min(12) 負責，這裡只補一個更好讀的訊息。
+// ─── 檢查 #5：每站引導提問恰好 3 題 ──────────────────────────
+//
+// 【2026-09-04 改判準】原本是 ≥ 12 題。改成**恰好 3**，理由見 content/schema.ts
+// 的 GuidedPromptSchema 說明——一句話：沒有回訪機制，12 題的池子換來的是
+// 「九成題目玩家永遠看不到，但一樣要逐字審」。
+//
+// 由 schema 的 .length(3) 負責，這裡只補一個更好讀的訊息。
+// ★ 多寫也是錯：L2 的版面是固定三個按鈕，多出來的沒地方放。
+
+const PROMPT_COUNT = 3;
 
 for (const b of bundles) {
-	const n = b.prompts?.items.length ?? 0;
-	if (b.prompts && n < 12) {
-		fail('#5 題數', `${b.dir} 只有 ${n} 題引導提問，需要 ≥ 12（重複感是「這是機器人」的主因）`);
+	if (!b.prompts) continue;
+	const n = b.prompts.items.length;
+	if (n !== PROMPT_COUNT) {
+		fail(
+			'#5 題數',
+			`${b.dir} 有 ${n} 題引導提問，必須**恰好 ${PROMPT_COUNT} 題** —— ` +
+				`L2 的版面是固定三個按鈕，多寫的沒地方放、少寫的會開天窗`
+		);
+	}
+	// 15 字的建議不做成 schema 強制（中文字數不好定義），但這裡提醒。
+	for (const item of b.prompts.items) {
+		const len = [...item.text.zhHant].length;
+		if (len > 15) {
+			warn(
+				'#5 題數',
+				`${b.dir}/prompts.yaml 的 "${item.id}" 有 ${len} 字 —— ` +
+					`它是可點擊的按鈕，建議 15 字內（前身撞過版面才改短的）`
+			);
+		}
 	}
 }
 

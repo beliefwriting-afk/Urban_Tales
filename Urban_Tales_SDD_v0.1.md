@@ -337,32 +337,34 @@ export const SoulSchema = z.object({
   }),
 });
 
+// 【2026-09-04 改版】素材庫從「items 陣列 ＋ 每條標 kind／topic」
+// 改成「一段 facts ＋ 幾條 legends」。理由見下方說明。
 export const MaterialSchema = z.object({
   siteId: z.string(),
-  items: z.array(z.object({
+  /** ★ 一段史實。整段逐字進 system prompt */
+  facts: LocalizedText,
+  /** 那段史實的出處，至少一個。★ 不進 prompt，只給審內容的人查證用 */
+  sources: z.array(z.string().min(1)).min(1),
+  /** 民間傳說單列——「有人這樣說，但沒有定論」的都放這裡 */
+  legends: z.array(z.object({
     id: z.string(),
-    /** ★ 企劃書 §4.2 第 5 條：必須區分知識性質 */
-    kind: z.enum(['已知史實', '民間傳說', '角色想像']),
-    topic: z.string(),                 // 供引導提問對應
     text: LocalizedText,
-    /** 史實類必填出處。建置期驗證會強制檢查 */
+    /** 傳說可以沒有出處，那正是它是傳說的原因 */
     source: z.string().nullable().default(null),
-  })),
+  })).default([]),
 });
 
+// 【2026-09-04 改版】從「≥ 12 題 ＋ tier ＋ triggerTopics ＋ topic」
+// 改成「恰好 3 題，寫死」。整套挑選機制拿掉了。
 export const GuidedPromptSchema = z.object({
   siteId: z.string(),
   items: z.array(z.object({
     id: z.string(),
-    text: LocalizedText,
-    /** 對應到 materials 的 topic，用於挑選與去重 */
-    topic: z.string(),
-    /** opening=開場即出現; followup=聊到相關主題才出現; safety=保底 */
-    tier: z.enum(['opening', 'followup', 'safety']),
-    /** 僅在對話中出現過這些關鍵詞時才進候選池 */
-    triggerTopics: z.array(z.string()).default([]),
-  })).min(12),   // ★ 每站至少 12 題，避免重複感
+    text: LocalizedText,      // 建議 15 字內（可點擊的按鈕，長了排不下）
+  })).length(3),              // ★ 恰好三題：L2 版面是固定三個按鈕
 });
+
+// ⚠️ 上面兩個 schema 為什麼改，見本節末的「【2026-09-04】素材與提問改版」。
 
 export const FallbackSchema = z.object({
   siteId: z.string(),
@@ -402,9 +404,9 @@ export const CardSchema = z.object({
 |---|---|---|
 | 1 | 所有 YAML 符合 Zod schema | 基本 |
 | 2 | 每個 site 都有 soul / materials / prompts / fallbacks | 缺一個就會在現場開天窗 |
-| 3 | `kind: 已知史實` 的素材 **必須有 `source`** | 落實企劃書 §4.2 第 5 條 |
-| 4 | `prompts` 的每個 `topic` 都能在 `materials` 找到對應 | 避免問了但角色答不出來 |
-| 5 | 每站引導提問 ≥ 12 題 | 重複感是「這是機器人」的主因（企劃書 §5.3） |
+| 3 | `materials.facts` **必須有至少一個 `sources`**，且不得是「網路」「維基」這種敷衍值；`facts` 出現「有一種說法／據說／相傳」時警告（那句話該搬去 `legends`） | 落實企劃書 §4.2 第 5 條【2026-09-04 改判準】 |
+| 4 | `legends` 是空的時候**唸出來但不擋** | ~~原本是「prompts 的 topic 都能在 materials 找到對應」，`topic` 欄位已移除~~【2026-09-04 改寫】空的 legends 通常表示還沒想過，不是真的沒有 |
+| 5 | 每站引導提問**恰好 3 題**；超過 15 字警告 | ~~原本是 ≥ 12 題~~【2026-09-04 改判準】L2 版面是固定三個按鈕 |
 | 6 | 所有 `LocalizedText.zhHant` 非空 | 第一版語言完整性 |
 | 7 | 卡片總數 == 13，且 5/5/3 分佈正確 | 企劃書 §5.6 |
 | 8 | 所有 art 路徑檔案存在 | 避免上線後破圖 |
@@ -737,8 +739,11 @@ export type SpeakResult = {
   isFallback: boolean;
   fallbackReason?: 'ai_error' | 'quota' | 'rate_limit' | 'global_cap'
                  | 'input_too_long' | 'blocked_topic' | 'output_rejected';
-  /** 下一批引導提問 */
-  nextPrompts: GuidedPrompt[];
+  // ⚠️ 【2026-09-04 移除】原本這裡有 `nextPrompts: GuidedPrompt[]`——
+  //   「下一批引導提問」。改成每站恰好三題、寫死之後，沒有「下一批」這回事：
+  //   前端一開始就把那三題拿到手（跟著 /api/site/:id/enter 的回應），
+  //   之後每一輪都是同樣三題，伺服器不必再回一次。
+  //   少回一個欄位 ＝ 少一份會跟內容層漂移的東西。
 };
 
 export async function speak(ctx: SpeakContext): Promise<SpeakResult> {
@@ -883,44 +888,40 @@ CI 跑 `eslint --max-warnings 0`，**違反即建置失敗**。
 
 ### 6.4 引導提問
 
-**【暫定 T5】採「預寫池 ＋ 規則挑選」，不由模型即時生成。**（附錄 B #5）
+**【T5 已定案，2026-09-04】採「預寫，恰好三題，寫死」，不由模型即時生成，也不做規則挑選。**（附錄 B #5 結案）
 
-**理由**：
+**為什麼預寫而不是生成**（這半邊沒有變）：
 
 1. **企劃書 §5.3 已經定調**：「引導提問要當內容來設計，不是隨機產三句。」預寫才可能被當內容設計。
 2. **生成的提問無法逐字審**——而引導提問是**玩家直接看到的文字**，與保底台詞同級（企劃書 §4.3）。若讓模型生成，等於開了一條繞過逐字審的路徑。
 3. **零額外 token 成本。** 生成方案每輪要多一次呼叫或多一段輸出。
-4. **重複感的解法不是「隨機」，是「池子夠大 ＋ 已出過的不再出」。** 每站 12 題起跳（schema 強制），一次到訪頂多看到 6–8 題。
 
-**挑選演算法**：
+**為什麼從「12 題 ＋ 規則挑選」縮成「3 題寫死」**（這半邊是 2026-09-04 改的）：
 
-```ts
-function pickPrompts(siteId, session): GuidedPrompt[] {
-  const pool = PROMPTS[siteId];
-  const shown = session.shownPromptIds;      // 本次到訪已出現過的
-  const covered = session.coveredTopics;     // 對話中已聊到的 topic
+原本的理由是企劃書 §5.3 的「重複感是玩家判定『這是機器人』的主因」，對策是「池子夠大 ＋ 已出過的不再出」，每站 12 題起跳。
 
-  if (session.turnCount === 0) {
-    return pool.filter(p => p.tier === 'opening' && !shown.has(p.id)).slice(0, 3);
-  }
+**那條理由成立的前提是玩家會反覆看到這些提問。** 但本專案：
 
-  // followup：觸發主題有交集、且該主題還沒聊透
-  const candidates = pool.filter(p =>
-    p.tier === 'followup' &&
-    !shown.has(p.id) &&
-    (p.triggerTopics.length === 0 ||
-     p.triggerTopics.some(t => covered.has(t))) &&
-    !covered.has(p.topic)            // 已聊過的主題不再問
-  );
+- **沒有回訪機制**（CONTEXT 明文推翻），一趟就拿完一個景點的卡；
+- 引導提問是**玩家卡住時的起手式**，不是主要互動——按下去之後就進自由對話了；
+- 只做三站，一個玩家整趟總共看到 9 題。
 
-  if (candidates.length === 0) {
-    // 保底：無條件可出的題目
-    const safety = pool.filter(p => p.tier === 'safety' && !shown.has(p.id));
-    return safety.slice(0, 2);       // 仍為空 → 回傳 []，UI 完全隱藏（§5.3）
-  }
-  return shuffle(candidates).slice(0, 3);
-}
-```
+在這個形狀下，12 題的池子換來的不是「不重複」，而是**九成的題目玩家永遠看不到，卻一樣要逐字審**（企劃書 §4.3：措辭即成品）。成本全付，好處沒拿到。
+
+**連帶移除的東西**：
+
+| 移除 | 原本做什麼 | 為什麼可以移除 |
+|---|---|---|
+| `pickPrompts()` | 依 turnCount／已出過／已聊過的主題挑三題 | 只有三題，沒有可挑的 |
+| `tier`（opening／followup／safety） | 標記題目何時可以出現 | 三題永遠都出現 |
+| `triggerTopics` | 聊到某些關鍵詞才進候選池 | 同上 |
+| `prompts.items[].topic` | 對應 materials 的 topic，用於去重 | 去重不存在了 |
+| `materials.items[].topic` | 被上一項對應 | 沒有東西要對應它 |
+| `session.shownPromptIds` / `coveredTopics` | 挑選用的狀態 | 沒有挑選了 |
+
+⚠️ **`.length(3)` 而不是 `.min(3)`**：L2 的版面是固定三個按鈕。允許多寫的話，前端就得決定「多出來的怎麼辦」（隨機抽三個？滾動？）——那就是把剛拿掉的挑題邏輯又請回來。恰好三題讓「多寫了」在**建置時**被擋下來，而不是上線才發現版面破了。
+
+⚠️ **這三題仍然是內容，仍然要逐字審。** 少不代表可以隨便寫——它們是玩家對這個靈魂的第一印象。
 
 **點選引導提問 = 玩家自己打字送出**（企劃書 §5.3）：前端把該提問的文字原樣送進 `/api/chat`，`origin` 標為 `guided-prompt`。**不繞過任何檢查**——因為它走的就是同一個 `speak()`。
 
@@ -1605,7 +1606,7 @@ sudo systemctl restart urban-tales
 | **T2** | 對話模型 `gemini-2.5-flash-lite` | §1.2 | 0.46s 延遲、最低成本 | 改模型只需改環境變數；成本表（§10.2）需重算 |
 | **T3** | 展示模式用通關密語 | §5.4 | 平衡展示便利與「硬到場」 | 改完全公開 → demo 額度（T10）需大幅收緊 |
 | **T4** | 各站起始判定半徑 | §5.5 | 依場域型態與遮蔽估算 | 本來就要被 P0 量測推翻，這只是施工用值 |
-| **T5** | 引導提問採預寫池 | §6.4 | 可逐字審、零成本、企劃書 §5.3 定調 | 改生成 → 必須走 `speak()`，且需新增輸出審查與成本重算 |
+| **T5** | ~~引導提問採預寫池~~ **已定案（2026-09-04）：預寫、恰好 3 題、寫死** | §6.4 | 可逐字審、零成本、企劃書 §5.3 定調；**縮成 3 題是因為沒有回訪機制，12 題的池子有九成玩家永遠看不到卻一樣要審** | 改生成 → 必須走 `speak()`，且需新增輸出審查與成本重算 |
 | **T6** | 第一版不做串流 | §6.6 | 1.8 秒完成，體驗差異小 | `complete()` 已預留 `stream` 參數，改動局限於 §6.6 與前端聊天元件 |
 | **T7** | 相機採 getUserMedia 疊層 | §7.1 | 符合 §5.1 且保住 §5.4 的設計意圖 | 改原生相機 → §7.2 合成管線大改，且需修訂企劃書 §5.1 |
 | **T8** | 合成圖加浮水印 | §7.2 | 零成本傳播 ＋ 作品集辨識 | 拿掉即可，無連動 |
@@ -1649,7 +1650,7 @@ sudo systemctl restart urban-tales
 | 2 | 地圖方案 A/B | **已拍板：OSM 資料 ＋ 離線光柵化圖磚**（2026-08-28）。範圍＝整個台北市 | §9.3 | ✅ 已實作並實機驗過 |
 | 3 | Live2D vs 分層 PNG | **架構上解耦**——`SoulRenderer` 介面讓兩者可抽換、可混用，P1 不必等這個決定 | §9.4 | ✅ **已解除阻擋**，P0 實測後定案 |
 | 4 | 到場判定半徑 | **給出量測方案、驗收標準與公式**，並提供五站施工用起始值 | §5.5 / T4 | ✅ 方法已定，值待 P0 量測 |
-| 5 | 引導提問 預寫 vs 生成 | **建議預寫池 ＋ 規則挑選**，附四點理由與挑選演算法 | §6.4 / T5 | ✅ **已給暫定值** |
+| 5 | 引導提問 預寫 vs 生成 | **預寫，恰好 3 題，寫死**。規則挑選（tier／triggerTopics／topic）整套移除 | §6.4 / T5 | ✅ **2026-09-04 定案** |
 | 6 | 萬華腳本沿用程度 | 未處理——需逐字檢視既有腳本，屬 P3 | §8.3 | ⏸ 維持待確認 |
 | 7 | 展示模式開放程度 | **建議通關密語**，並設計了差異化額度與 UI 標示 | §5.4 / T3 | ✅ **已給暫定值** |
 | 8 | AI 供應商模型與計費 | 2026-08-25 對 Zeabur AI Hub 實測完成；**2026-09-03 搬到 Gemini 直連，該輪量測作廢**。成本仍採無快取欄（保守），但延遲與 `cached_tokens` 要重測 | §1.2 / §6.3 / §10.2 | ⚠️ **要重驗** |
@@ -1745,7 +1746,7 @@ sudo systemctl restart urban-tales
 | 2 | 不轉述神明話語 | 同上第 2 條；**＋ `content:check` 第 9 項關鍵詞黑名單**（人格卡靜態檢查） | 提示層 ＋ **建置期** |
 | 3 | 不作教義陳述或裁決 | 同上第 3 條；`fallbacks.refusal` 提供轉向台詞 | 提示層 ＋ 降級層 |
 | 4 | 不是廟方／解說員／導遊 | 同上第 4 條；`persona.isNot` schema 強制非空 | 提示層 ＋ **schema** |
-| 5 | 不對敏感歷史武斷定論 | 同上第 5 條；**＋ `MaterialSchema.kind` 強制標示史實／傳說／想像，史實必填 source** | 提示層 ＋ **建置期** |
+| 5 | 不對敏感歷史武斷定論 | 同上第 5 條；**＋ `MaterialSchema` 把 `facts`（可以講得斬釘截鐵）與 `legends`（必須留活口）分成兩個欄位，`facts` 強制至少一個 `sources`**【2026-09-04 改版，原本是每條標 `kind`】 | 提示層 ＋ **建置期** |
 | ★ | **「所有生成路徑都要套用」** | **§6.1 唯一出口 `speak()` ＋ ESLint import 封鎖 ＋ CI** | **建置期，繞不過** |
 
 > 第 ★ 條是前身專案失敗的那一條，也是本文件唯一用「CI 失敗」等級去守的規則。
