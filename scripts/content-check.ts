@@ -269,6 +269,54 @@ if (cards && siteDirs.length > 0) {
 	}
 }
 
+// ─── 檢查 #7b：playable 的站必須恰有一張相遇卡 ────────────────
+//
+// ★ 為什麼要這一條（切片 4 加的）
+//
+//   `/api/site/:id/enter` 發卡時是**查** cards.yaml 拿 id，不是拼
+//   `encounter-<siteId>` 這種約定出來的字串（理由見 lib/server/content/cards.ts）。
+//   查表的代價就是這條規則：查不到就發不出卡。
+//
+//   沒有這條檢查的話，一站轉 playable 而忘了寫卡，玩家會走到現場、
+//   進得去、聊得動，然後在 enter 收到 500。那個 500 應該在建置時就發生。
+//
+// ★ 「恰有一張」不是「至少一張」：兩張相遇卡的話，發卡時挑哪一張是沒有
+//   定義的行為，而 getEncounterCard 會回它先找到的那張——一個看起來
+//   隨機的結果。要嘛一張，要嘛在這裡就講清楚。
+//
+// ⚠️ 這一條只對 playable 的站生效。草稿站沒有卡片是正常狀態，
+//   不是還沒寫完的錯——它本來就進不去。
+
+if (playableDirs.length === 0) {
+	// ★ 跟 #7 一樣：未啟用要講出來，不能靜默跳過。
+	//   「這條規則現在沒有在檢查」與「這條規則檢查過了」必須看得出差別，
+	//   否則下次有人看到一片綠，會以為相遇卡已經被驗過了。
+	notes.push(
+		`#7b 相遇卡檢查【尚未啟用】：目前沒有 playable 的站。一旦有站宣告 playable，` +
+			`就會開始強制「該站必須恰有一張 kind: encounter 的卡」。`
+	);
+}
+
+for (const b of bundles) {
+	if (b.site?.status !== 'playable') continue;
+
+	const mine = (cards?.cards ?? []).filter((c) => c.kind === 'encounter' && c.siteId === b.dir);
+
+	if (mine.length === 0) {
+		fail(
+			'#7b 相遇卡',
+			`${b.dir} 宣告 playable 但 cards.yaml 裡沒有它的相遇卡 —— ` +
+				`玩家走到現場會拿到 500。要嘛補一張 kind: encounter 的卡，要嘛先留 status: draft`
+		);
+	} else if (mine.length > 1) {
+		fail(
+			'#7b 相遇卡',
+			`${b.dir} 有 ${mine.length} 張相遇卡（${mine.map((c) => c.id).join('、')}）—— ` +
+				`發卡時該挑哪一張沒有定義。一站只能有一張`
+		);
+	}
+}
+
 // ─── 檢查 #8：所有 art 路徑檔案存在 ──────────────────────────
 // 避免上線後破圖。
 

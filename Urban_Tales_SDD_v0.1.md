@@ -1711,6 +1711,18 @@ sudo systemctl restart urban-tales
 | POST | `/api/account/delete` | player cookie | 清除所有資料 | P4 |
 | GET | `/api/admin/stats` | 密語 | 營運指標 | P4 |
 
+> **在場憑證走 `X-Presence-Token` header**【2026-09-03 補】
+>
+> 上表「認證」欄的「＋ presence token」沒有說怎麼帶。定案是**自訂 header `X-Presence-Token`**，三支端點（`enter` / `chat` / `photo-task`）共用同一個名字，常數定義在 `src/lib/server/auth/presence.ts`。
+>
+> **不用 `Authorization: Bearer`**：那個 header 在所有人的直覺裡代表「你是誰」，而在場憑證代表「你剛才站在哪」。混用會讓後來讀程式碼的人以為兩者可以互換——而 §5.3 花了一整段在說明兩種憑證的驗證邏輯**刻意不共用**。
+>
+> **不放 request body**：三支端點都要帶同一張憑證，放 body 就是三份各自定義、會漂移的 schema。
+>
+> ⚠️ JWT 是純 ASCII，不會踩到 HTTP header 值只能是 ByteString 的限制。
+>
+> ⚠️ **常數不可以定義在 `+server.ts` 裡。** SvelteKit 的 `+server.ts` 只允許匯出 HTTP 方法與 `prerender` / `config` / `entries` / `trailingSlash` / `fallback`，其餘具名匯出會在**模組載入時**丟 `Invalid export`——那是執行期檢查，`npm run verify` 抓不到。
+
 > **`/api/sites` 回經緯度，但不回判定半徑**【2026-08-29 改寫】
 >
 > 原文寫的是「不回傳精確座標，地圖只需要 `mapPos`（地圖像素座標）」。**那條在地圖改成真實 OSM 圖磚之後失效了**：圖釘要畫在正確位置就一定要有經緯度，而 `mapPos` 只是經緯度換算過的像素，可以直接反推回去——保護是假的，還多一層換算要維護。`mapPos` 因此從 `SiteSchema` 移除（全專案沒有任何程式碼在用它）。

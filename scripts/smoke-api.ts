@@ -1,5 +1,5 @@
 /**
- * API 的煙霧測試（身分 ＋ 到場判定） —— 對「正在跑的 dev server」發真的 HTTP 請求。
+ * API 的煙霧測試（身分 ＋ 到場判定 ＋ 進入景點） —— 對「正在跑的 dev server」發真的 HTTP 請求。
  *
  * ★ 為什麼需要它，而不是只靠單元測試：
  *   `session.spec.ts` 測的是簽章邏輯本身（純函式）。這支測的是**接線**——
@@ -24,6 +24,9 @@
  *   （注意不是 `or`——`0` 和 `''` 在這裡會被保留，`or` 會把它們當假值換掉）。
  */
 import { readFileSync } from 'node:fs';
+// ★ header 名從正式程式碼匯入，不要在這裡再寫一次字串——
+//   兩份會漂移，而漂移的那一天測試會「通過」但實際是錯的。
+import { PRESENCE_HEADER } from '../src/lib/server/auth/presence.ts';
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:5173';
 
@@ -337,6 +340,57 @@ async function main() {
 		}
 	}
 
+	// ══ 進入景點（切片 4）══════════════════════════════════════
+	//
+	// ⚠️ 三站現在都是草稿，所以這裡**測不到成功路徑**——能端到端驗證的
+	//    只有「被擋下來」那一側。成功路徑由 enter.spec.ts 的純函式覆蓋，
+	//    等第一站轉 playable 時再回來這裡補。
+	console.log('\n── 進入景點 ──');
+
+	const enter = (id: string, extra: Record<string, string> = {}) =>
+		fetch(`${BASE}/api/site/${encodeURIComponent(id)}/enter`, {
+			method: 'POST',
+			headers: { ...auth, ...extra }
+		});
+
+	// ★ 帶著剛才在龍山寺拿到的真憑證去敲草稿站的門。
+	//   憑證完全有效，被擋下來的原因只能是 status: draft。
+	const draftEnter = await enter('longshan-temple', {
+		[PRESENCE_HEADER]: String(insideBody.token ?? '')
+	});
+	const draftBody = await draftEnter.json();
+	check(
+		'★ 草稿站：憑證有效也進不去',
+		draftEnter.status === 403 && draftBody.code === 'site_not_playable',
+		`HTTP ${draftEnter.status}，code=${draftBody.code}`
+	);
+
+	// 順序釘住：憑證與 status 同時不成立時，回的是先檢查的那一個。
+	// 若哪天有人把驗憑證挪到前面，這條會變成 no_presence。
+	const noToken = await enter('longshan-temple');
+	const noTokenBody = await noToken.json();
+	check(
+		'草稿站的判斷排在憑證之前',
+		noTokenBody.code === 'site_not_playable',
+		`code=${noTokenBody.code}（不該是 no_presence —— 順序被改了）`
+	);
+
+	const ghostSite = await enter('沒有這一站');
+	const ghostSiteBody = await ghostSite.json();
+	check(
+		'不存在的景點 → 404',
+		ghostSite.status === 404 && ghostSiteBody.code === 'unknown_site',
+		`HTTP ${ghostSite.status}，code=${ghostSiteBody.code}`
+	);
+
+	// ★ 不管走哪一條路，回應本文都不該出現人格卡的任何痕跡。
+	//   這是 souls.spec.ts 那條白名單測試在接線層的第二道——
+	//   單元測試看的是 toPublicSoul，這裡看的是真的送出去的那串位元組。
+	const leaked = [draftBody, noTokenBody, ghostSiteBody]
+		.map((b) => JSON.stringify(b))
+		.some((t) => /persona|identity|voice|taboo/i.test(t));
+	check('★ 回應裡沒有人格卡的痕跡', !leaked);
+
 	console.log('');
 
 	// ── 6. 資料庫實際狀況 ───────────────────────────────────────
@@ -381,7 +435,7 @@ async function main() {
 				}
 			} else if (rows.length - ids.length > 0) {
 				console.log(
-					` 還有 ${rows.length - ids.length} 個先前殘留的玩家。要一起清掉就跑 npm run smoke:auth -- --purge`
+					` 還有 ${rows.length - ids.length} 個先前殘留的玩家。要一起清掉就跑 npm run smoke:api -- --purge`
 				);
 			}
 		} finally {

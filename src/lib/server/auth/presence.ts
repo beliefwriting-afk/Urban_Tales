@@ -41,6 +41,22 @@ import { createHmac } from 'node:crypto';
 
 const ALG = 'HS256';
 
+/**
+ * 在場憑證走這個 header。★ chat 與 photo-task 沿用同一個名字。
+ *
+ * ★ 為什麼不用 `Authorization`：那在所有人的直覺裡代表「你是誰」，而在場憑證是
+ *   「你剛才站在哪」。混用會讓後來讀程式碼的人以為兩者可以互換——那正是這個
+ *   檔案檔頭花一整段在避免的事。
+ *
+ * ★ 為什麼不放 request body：三支端點要帶同一張憑證，放 body 就是三份會漂移的 schema。
+ *
+ * ⚠️ 為什麼常數放這裡而不是路由檔：`+server.ts` **只能匯出 HTTP 方法**
+ *   （GET/POST/…）與 prerender / config / entries / trailingSlash / fallback。
+ *   其餘任何具名匯出都會在模組載入時丟 `Invalid export`——而那是**執行期**檢查，
+ *   `npm run verify` 抓不到，要到 dev server 收到第一個請求才會炸。
+ */
+export const PRESENCE_HEADER = 'x-presence-token';
+
 /** SDD §5.3：15 分鐘。★ 這個數字對應真實行為——玩家在現場聊天會續期，離開後自然失效 */
 export const PRESENCE_TTL_SECONDS = 900;
 

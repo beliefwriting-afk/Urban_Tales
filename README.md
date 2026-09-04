@@ -48,7 +48,7 @@ npm run dev
 | 指令                    | 做什麼                                                   |
 | ----------------------- | -------------------------------------------------------- |
 | `npm run dev`           | 開發伺服器                                               |
-| `npm run verify`        | **提交前跑這個** —— 內容驗證 ＋ lint ＋ 測試 ＋ 護欄測試 |
+| `npm run verify`        | **提交前跑這個** ★ 判準與 CI 對齊，這個過了 CI 就會過   |
 | `npm run content:check` | 內容驗證（SDD §2.4 十項）                                |
 | `npm run lint`          | 含 speak() 唯一出口封鎖檢查                              |
 | `npm run test`          | 單元測試                                                 |
@@ -58,6 +58,7 @@ npm run dev
 | `npm run db:migrate`    | **正式環境用這個** —— 套用 migration，有變更紀錄         |
 | `npm run db:push`       | 開發期快速同步 schema（不留紀錄，正式環境不要用）        |
 | `npm run smoke:api`     | 對正在跑的 dev server 做端到端檢查（需要 `npm run dev`） |
+| `npm run db:ping`       | 資料庫連線診斷 —— 連不上時先跑這個                       |
 
 ---
 

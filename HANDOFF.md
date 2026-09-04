@@ -1,6 +1,6 @@
 # HANDOFF — 給接手的下一個對話
 
-> 第六版，2026-09-03 更新（§13）。**新對話開始時，讀完 `CONTEXT.md` 之後接著讀這一份。**
+> 第七版，2026-09-03 更新（§14）。**新對話開始時，讀完 `CONTEXT.md` 之後接著讀這一份。**
 > 這份是「上一次做到哪、下一步做什麼」，不是專案本身的定義。專案定義看企劃書與 SDD。
 
 ---
@@ -23,15 +23,24 @@
 **2026-08-28 地圖圖層完成**：OSM → Python 離線光柵化 → 630 張像素圖磚（整個台北市，3.61 MB）。
 完整交接在 **§12**，含八個很難自己想到的坑。介面展示那一輪在 **§10**。
 
-**★ 最新一輪（2026-08-29 ～ 09-03）在 §13**，兩件事：
+**上一輪（2026-08-29 ～ 09-03）在 §13**，兩件事：
 
 1. **後端開工**——訪客身分、景點清單、到場判定＋展示模式三支端點寫完，51 條測試。
    三站內容從前身專案轉過來了（人格卡、素材庫），還缺引導提問與保底台詞。
-2. **從 Zeabur 搬到 GCP**——資安考量。`deploy/` 五個檔案照君和自己的 Roku 專案的形狀寫好，
-   **但還沒實際部署過**，VM 還沒建。
+2. **從 Zeabur 搬到 GCP 並上線**——資安考量。**https://urbantales.alcloud.us**，
+   21 條煙霧測試全綠。上線那天踩到的三個坑見 §13.9。
 
-⚠️ **§13.8 有一份「立刻要做的」清單**，其中兩項不做會出事：
-本機 `.env` 還是 `AIHUB_*`（讀不到會安靜退回 mock 模式）、migration 檔還沒產生。
+**★★ 最新一輪（2026-09-03 下午）在 §14**，三件事：
+
+1. **開發環境修好了**——`.env` 改名 `AI_*`、改走 SSH 通道連 VM 上的 Postgres。§13.8 那份
+   「立刻要做的」清單已結清。
+2. **切片 4 完成**——`POST /api/site/:id/enter`，草稿站拒絕、首次進入發相遇卡（冪等）。
+   `npm test` 現在 **75 條**。
+3. **`verify` 的判準跟 CI 對不上，六天沒人發現**——見 §14.5。這一項比切片 4 本身重要。
+   `verify` 已補上 `npm run check`。
+4. **提交前的整體體檢**（§14.7）又抓到一個 verify 抓不到的錯：
+   `+server.ts` 不能匯出 HTTP 方法以外的名字，會在執行期丟 `Invalid export`。
+   順便比對出**切片 7 的三個落差**（§14.8）——最重要的是前端目前有能力自己宣告「我到了」。
 
 （P0-1 角色動畫再度往後排了——後端接起來比較能看到整個系統會不會通。）
 
@@ -135,7 +144,11 @@ src/lib/client/
 | `npm run build` | ✅ |
 | 實測違規 `import OpenAI from 'openai'` | ✅ **ESLint 擋下並印出中文說明** |
 
-> **`npm run verify` 是提交前該跑的那一個指令**（= content:check ＋ lint ＋ test ＋ test:guard）。
+> **`npm run verify` 是提交前該跑的那一個指令**
+> （= content:check ＋ lint ＋ **check** ＋ test ＋ test:guard）。
+>
+> ★ `check` 是 2026-09-03 補進去的，理由見 §14.5：**verify 的判準必須與 CI 一致**，
+>   否則 CI 會擋、verify 不會擋的那些項目會安靜地爛掉。
 
 ---
 
@@ -833,5 +846,211 @@ ssh -i C:\Users\erics\.ssh\gcp_larp -N -L 55432:127.0.0.1:5432 al06120001@34.41.
   現在只有伺服器端判定，前端還沒做。
 - **90 天換 Google 帳號的 SOP**。Roku 與 LARP 各有一份。
 
-**已知的小事**：`MapLayer.svelte:331` 的地圖 div 有 pointer 事件但沒有 ARIA role，
+**已知的小事**：`MapLayer.svelte:338` 的地圖 div 有 pointer 事件但沒有 ARIA role，
 每次建置都會警告。補個 `role="application"` 就好，還沒動是因為它會改到 UI，想跟實機驗收一起做。
+
+---
+
+## 14. 切片 4：進入景點（2026-09-03）
+
+> 這一輪做了兩件事：**修好開發環境**、**寫完 `POST /api/site/:id/enter`**。
+> 另外順手抓到一個躺了六天的型別錯誤，以及它躺得住的原因（§14.5，比錯誤本身重要）。
+
+### 14.1 開發環境修好了
+
+§13.10 列的兩件事都做完：
+
+- 本機 `.env` 的 `AIHUB_*` 全部改名 `AI_*`，模型改成 Gemini（primary 是 `gemini-3.5-flash-lite`）
+- `DATABASE_URL` 改成走 SSH 通道 `127.0.0.1:55432`
+- 原檔備份在 `.env.bak`（`.gitignore` 的 `.env.*` 蓋得到，不會進版控）
+
+**兩個祕密（DB 密碼、`AI_API_KEY`）直接從 VM 抄。** `/etc/urban-tales/urban-tales.env`
+是 `640 root:al06120001`，君和的帳號在群組裡，**不用 sudo**：
+
+```
+ssh -i C:\Users\erics\.ssh\gcp_larp al06120001@34.41.151.184 "grep -E '^(AI_API_KEY|DATABASE_URL)=' /etc/urban-tales/urban-tales.env"
+```
+
+⚠️ **`SESSION_SECRET` 刻意不從 VM 抄。** 在場憑證與展示模式憑證都是從它推導的，
+本機若用正式那把，開發機就能簽出**正式站認得的憑證**。兩邊各一把，不要為了方便共用。
+
+⚠️ **`AI_API_KEY` 的長度會騙人。** Gemini 新格式是 `AQ.Ab8…` 53 字元，
+跟舊的 Zeabur AI Hub token 一樣長。只看長度分不出來，要看開頭。
+
+本機 `DEMO_PASSPHRASE` 填了 `urban-tales-dev`（原本是空的＝展示模式整個關掉）。
+沒有它就沒辦法在不走到西門町的情況下測進入景點。**正式站那把不同，也不該相同。**
+
+### 14.2 做完的切片 4
+
+| 檔案 | 做什麼 |
+|---|---|
+| `lib/server/content/souls.ts` | 靈魂載入器 ＋ `toPublicSoul()` 白名單 |
+| `lib/server/content/cards.ts` | 卡片載入器 ＋ `getEncounterCard()` |
+| `lib/server/site/enter.ts` | ★ `decideEnter()` 純函式，所有拒絕判準都在這裡 |
+| `lib/server/progress/award.ts` | `awardCard()` / `markFirstMet()`，兩支都冪等 |
+| `routes/api/site/[id]/enter/+server.ts` | 路由，很薄 |
+| `scripts/content-check.ts` | 新增 #7b |
+| `scripts/smoke-api.ts` | 新增四條端到端檢查 |
+
+`npm test` 現在是 **75 條**（原 51 ＋ 新 24）。
+
+### 14.3 四個拍板
+
+| # | 決定 | 理由 |
+|---|---|---|
+| 1 | 在場憑證走 **`X-Presence-Token` header** | 不用 `Authorization`：那在所有人的直覺裡代表「你是誰」，而在場憑證是「你剛才站在哪」。混用會讓後來讀程式碼的人以為兩者可以互換——那正是 `presence.ts` 檔頭花一整段避免的事。不放 body：chat 與 photo-task 要帶同一張，放 body 就是三份會漂移的 schema |
+| 2 | **enter 只回卡片與立繪**，不回開場白與引導提問 | 那兩樣來自 `prompts.yaml`，三站都還沒有。挑題邏輯（tier／triggerTopics 去重）本來就是切片 5 的事，現在寫了也驗證不了 |
+| 3 | **發卡的 id 用查的，不用拼的** | `encounter-<siteId>` 這種約定是一份沒寫下來的規格。哪天 cards.yaml 命名不同，程式碼會照樣寫進一個不存在的 card_id，**而且不會有任何錯誤**——玩家圖鑑永遠缺一張，資料表裡卻有一列。查表則是查不到就當場知道 |
+| 4 | **不建測試用假景點** | 假景點會混進 `/api/sites`，也就會出現在地圖上，得再想辦法把它從正式建置排除——多一套排除機制就多一個會失效的地方。成功路徑由 `enter.spec.ts` 的純函式覆蓋 |
+
+### 14.4 ⚠️ 這一輪的三個判斷（都寫進註解了）
+
+**① `persona` 絕不外流。跟 `radiusM` 同一類錯。**
+persona 整段會逐字進 system prompt（SDD §6.2 的 [1]），洩漏等於把護欄怎麼寫、
+角色被禁止說什麼一起交出去——越獄從「試探」變成「照著繞」。
+而且它是「錯了畫面完全正常」的那種錯：多回一個欄位，前端不會壞、UI 不會變、沒有人會發現。
+`souls.spec.ts` 那條測試不只比對欄位名，還**逐字比對內容有沒有漏出去**。
+
+**② 判斷順序本身是規格。**
+`identity → 有沒有這站 → 草稿 → 憑證`。由「最不需要祕密的判準」往「最需要的」排，
+每一層洩漏的資訊都不超過 `/api/sites` 已經公開的東西（`status` 本來就在回應裡）。
+反過來排不會比較安全，只會讓每個戳草稿站的請求都白驗一次 JWT。
+**兩條測試釘住這個順序**（純函式一條、smoke 一條），有人挪動就會失敗。
+
+**③ `awardCard` 無條件呼叫，不是「firstMet 才發」。**
+`markFirstMet` 與 `awardCard` 之間若斷線，玩家會停在「已記錄第一次相遇、卡卻沒發出去」
+而且**再也回不去**——下一次 `markFirstMet` 會回 false。無條件呼叫讓下一次請求自己把卡補上。
+**能自癒的順序，勝過一個交易。**
+
+### 14.5 ★★★ `verify` 的判準跟 CI 對不上，六天沒人發現 ★★★
+
+`npm run check` 報了一個 `MapLayer.svelte:134 'meta' is possibly 'null'`。
+它是**地圖那一輪（2026-08-28）引入的**，躺了六天。
+
+**為什麼躺得住**：`ci.yml` 其實**有**跑 `npm run check`，但 `npm run verify` **沒有**。
+而 HANDOFF §4 寫著「`verify` 是提交前該跑的那一個指令」。於是：
+
+> **「verify 過了」不等於「CI 會過」。六天就掉在這個縫裡。**
+
+**已修**：`verify` 現在是 `content:check → lint → check → test → test:guard`。
+代價是它從 5 秒變成 25–30 秒（svelte-check 要啟 Svelte 語言伺服器），值得。
+`build` 沒加——它要 `DATABASE_URL` 且要一分多鐘，加了就真的會讓人不想跑。
+
+**錯誤本身的成因值得記**：TypeScript 的**縮小推論不會穿進閉包**。
+
+```ts
+if (!meta) return;                       // 這裡縮小成功
+const mpp = (s) => meta.levels[...]      // ❌ meta 是 $state（可變），
+                                         //    TS 不敢假設閉包執行時它還是非 null
+```
+
+同一個檔案的 `screenToLonLat` 一樣先擋 null 卻沒報錯，因為它**直接**用 `meta`、沒有閉包。
+修法是先 `const m = meta` 把值釘住。執行期原本就是安全的，但型別要跟事實一致。
+
+### 14.6 🔜 下一步
+
+- **切片 5** `POST /api/chat` ＋ `speak()` 九步 —— 最大的一塊。
+  **仍然卡在 `prompts.yaml`（每站 12 題）與 `fallbacks.yaml`（四種情境）**，只有君和能寫。
+- **切片 6** 快門回報 ＋ 圖鑑（`GET /api/collection`，`cards.ts` 的 `listCards()` 已備好）
+- **切片 7** 前端 `mock/session.svelte.ts` 換成真 API
+- **P0-5 重做**、**P0-1** 角色動畫、**P0-2** 實地量測
+
+**第一站要轉 playable 時，會依序撞到這些**（都會在建置時講出來，不會安靜）：
+
+1. `content:check #2` —— 缺 `prompts.yaml` / `fallbacks.yaml`
+2. `content:check #8` —— `soul.yaml` 的 `art` 還是 null（等 P0-1）
+3. `content:check #7b`（本輪新增）—— `cards.yaml` 沒有那一站的相遇卡
+4. 這三關都過之後，`smoke:api` 的「進入景點」才測得到成功路徑——**記得回去把那幾條補上**
+
+**還沒做、但有真玩家之前一定要做的**（沿用 §13.10）：資料庫邏輯備份、
+展示模式的 UI 標示、90 天換 Google 帳號的 SOP。
+
+**已知的小事**：`MapLayer.svelte:338` 的 ARIA role 警告還在（`npm run check` 會唸），
+君和要跟實機驗收一起做。
+
+
+### 14.7 提交前的整體體檢（2026-09-03）
+
+跑 verify 之前先做了一次靜態核對，抓到一個**會讓 smoke 直接 500 的錯**。
+記在這裡是因為它屬於「verify 抓不到」的那一類，跟 §14.5 是同一個形狀。
+
+**① ★★★ `+server.ts` 只能匯出 HTTP 方法。★★★**
+
+`PRESENCE_HEADER` 原本定義並匯出在 `routes/api/site/[id]/enter/+server.ts` 裡。
+SvelteKit 的 `validate_server_exports`（`node_modules/@sveltejs/kit/src/utils/exports.js`）
+只放行 `GET / POST / PATCH / PUT / DELETE / OPTIONS / HEAD / fallback /
+prerender / trailingSlash / config / entries`，以及**底線開頭**的名字。
+其餘任何具名匯出會丟 `Invalid export 'X' in +server.ts`。
+
+⚠️ **危險的是它的發生時機**：那是模組載入時的執行期檢查。
+`npm run verify` 全綠、`npm run check` 也全綠，要到 dev server 收到第一個請求才炸。
+
+已修：常數搬到 `lib/server/auth/presence.ts`，`chat` 與 `photo-task` 之後共用同一個。
+全專案四支 `+server.ts` 都掃過，其餘乾淨。
+**要在路由檔旁邊放常數的話，名字加底線前綴，或者搬到 `$lib`。**
+
+**② smoke 腳本自己又寫了一次 header 名字。**
+改成從 `presence.ts` import。兩份字串會漂移，而漂移的那天測試會「通過」但實際是錯的
+——比沒有測試更糟。
+
+**③ `content:check #7b` 在沒有 playable 站時完全不出聲。**
+補了「尚未啟用」的 note。#7 未啟用會印、#7b 不印，那違反本專案
+「不讓它安靜地存在」的原則：**「這條規則現在沒在檢查」與「這條規則檢查過了」
+必須看得出差別。**
+
+**查過沒問題的三項**（記下來，免得下次重查）：
+
+- `needsIdentity` 第一行就是 `if (pathname.startsWith('/api/')) return true`，
+  新端點不會被身分閘門誤判成子資源。
+- drizzle 0.45.2 的 `setWhere` 確實會產生 `where` 子句，且
+  `${playerSiteState.firstMetAt}` 展開成 `"player_site_state"."first_met_at"`
+  （帶表名，正確指向既有列而不是 `excluded`）。`markFirstMet` 的冪等判斷成立。
+- migration `0000` 已含 `player_site_state` 與 `player_cards`，複合主鍵與 cascade 外鍵都在。
+
+**④ drizzle 把底層錯誤吞掉了 —— 補了 `npm run db:ping`。**
+
+SSH 通道斷掉時（**電腦睡一次就會斷，而 `-N` 的終端機不噴任何訊息**），
+瀏覽器上看到的是：
+
+```
+Error: Failed query: insert into "players" (...) values (...)
+    at Object.handle (src/hooks.server.ts:125)
+```
+
+——完全看不出是「連不上」「密碼錯」還是「表不存在」。三種原因、三種修法，
+而錯誤訊息一視同仁。`scripts/db-ping.ts` 直接用 postgres-js 連，把原始錯誤碼
+印出來並附上**怎麼修**（ECONNREFUSED / ETIMEDOUT / 28P01 / 3D000 / 42P01），
+然後列出資料表與筆數、比對 schema.ts 的七張表在不在。
+
+⚠️ 它不進 `verify`（需要外部服務，同 smoke:api 的理由）。
+⚠️ 連線字串印出來前會把密碼遮掉。
+
+> **更廣的教訓**：ORM 的錯誤訊息會為了統一格式而丟掉診斷資訊。
+> 只要某個外部依賴「斷掉時的症狀」是一句看不出原因的話，就值得為它寫一支
+> 印得出原因的腳本——**猜測換成一行指令，那支腳本會被用很多次。**
+
+**⑤ 切片 4 驗收通過（2026-09-03）。** `npm run verify` 0 errors／75 條測試；
+`npm run smoke:api` 24 條全綠。
+
+★ 值得記的佐證：驗收後 `player_site_state` 與 `player_cards` **都是 0 列**。
+那不是「沒測到」，是**草稿站的拒絕路徑真的一個位元組都沒寫進資料庫**——
+判斷順序排在憑證之前那件事，效果在這裡看得見。
+
+⚠️ **正式庫的 `players` 有 21 列殘骸**（上線那天掃描器建的 18 列 ＋ 君和開頁測試的幾列），
+目前**沒有任何真玩家**。要清就趁現在：`npm run smoke:api -- --purge`。
+一旦有真玩家就不能再跑那個旗標了（見 §13.10），那時要另開 `urban_tales_dev`。
+
+### 14.8 ⚠️ 切片 7 不只是「換資料來源」
+
+體檢時順便比對了前端 mock 層與真後端，有三個對不上的地方。現在不會出事
+（前端全是假資料），但切片 7 會全部撞上。**先記下來，免得那時候以為只要換 fetch。**
+
+| mock 現況 | 真後端 | 影響 |
+|---|---|---|
+| `mock/data.ts` 的 SITES 有 **`summonM`**，`session.svelte.ts:171` 用它在**前端**算 `reachable` | `radiusM` **永遠不進 API 回應**（附錄 D） | 切片 7 要**整段拿掉前端的到場判定**，改由 `/api/presence` 回答。這是刪邏輯，不是換資料來源 |
+| `CardKind` 是 `'encounter' \| 'task' \| 'arc'` | `content/schema.ts` 是 `'encounter' \| 'task' \| 'story'` | 名字漂移。接上去會靜默對不到，圖鑑少一整類 |
+| 卡片 id 是 `encounter-${s.id}` 拼出來的 | 由伺服器查 `cards.yaml` 給 | 正是 §14.3 拍板 #6 否決的那個約定。前端要改成用伺服器回的 id |
+
+★ 第一項是三項裡最重要的：**前端目前有能力自己宣告「我到了」**，那與核心設計第 1 條
+「硬到場」相衝。現在無害是因為它連的是假資料；接上真後端那一刻，那段程式碼必須消失，
+而不是改成讀 API 的值。

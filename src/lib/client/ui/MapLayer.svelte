@@ -129,9 +129,16 @@
 	 * 直接相減會偏袒間隔大的那幾階，取 log 之後每一階的「感覺距離」才一致。
 	 */
 	function snapZoom(factor: number) {
-		if (!meta) return;
+		// ★ 先把值釘進一個 const 再用。
+		//   `if (!meta) return` 的縮小推論**不會穿進下面那個閉包**——meta 是
+		//   $state（可變），TS 不敢假設閉包執行時它還是非 null。
+		//   執行期其實安全（mpp 只在同一個同步流程裡被呼叫），但這個寫法
+		//   讓型別與事實一致，而不是靠讀的人自己推。
+		//   （對照 screenToLonLat：它直接用 meta、沒有閉包，所以不需要這一步。）
+		const m = meta;
+		if (!m) return;
 		const mpp = (s: (typeof ZOOM_LADDER)[number]) =>
-			meta.levels[s.level].groundMetresPerPixel / s.scale;
+			m.levels[s.level].groundMetresPerPixel / s.scale;
 		const target = mpp(mapView.stop) / factor;
 		let best = mapView.zoomStep;
 		let bestDiff = Infinity;
