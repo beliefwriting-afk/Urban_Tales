@@ -82,7 +82,7 @@ src/lib/server/soul/speak.ts    ← 唯一可以 import AI client 的檔案
     其他所有程式碼               ← 想繞過？ESLint 直接擋，CI 建置失敗
 ```
 
-由 `eslint.config.js` 的 `AI_SDK_FENCE` 與 `AI_CLIENT_FENCE` 強制，
+由 `eslint.config.js` 的 `FENCE_DEFAULT`、`FENCE_EXEMPT_AI_CLIENT`、`FENCE_EXEMPT_SPEAK` 強制，
 `npm run test:guard` 驗證這道圍籬本身沒有失效。
 
 **改動這兩處之前，先讀 SDD §6.1 與企劃書 §4.2。**
@@ -95,8 +95,8 @@ src/lib/server/soul/speak.ts    ← 唯一可以 import AI client 的檔案
 content/            內容層（進 Git，不做 CMS）
   schema.ts           ★ Zod 定義，型別與驗證的單一事實來源
   guardrails.yaml     ★ 全站唯一一份安全界線
-  cards.yaml          13 張成就卡
-  sites/<id>/         每站五個 YAML（草稿站只要 site.yaml）
+  cards.yaml          15 張成就卡（6 相遇 ＋ 6 任務 ＋ 3 劇情）
+  sites/<id>/         每站五個 YAML（草稿站只要 site.yaml）。目前六站，全部是草稿
   _template/          新增景點時複製這裡
 deploy/             GCP 部署（bootstrap.sh 一鍵、systemd、nginx）
 scripts/            建置期工具（TypeScript，會影響 CI 判定）
