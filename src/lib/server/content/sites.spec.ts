@@ -74,10 +74,29 @@ describe('toPublicSite —— 白名單', () => {
 	});
 });
 
+/**
+ * ★ 這份清單是**刻意寫死**的，不是從 content/sites/ 掃出來的。
+ *
+ * 掃出來的版本永遠會通過——那等於沒有測試。寫死之後，新增或刪掉一個景點
+ * 一定會讓這幾條紅掉，逼人回來確認：地圖範圍夠不夠？P0-2 要多量幾個點？
+ * content:check #7 的 EXPECTED_SITE_COUNT 要不要跟著動？
+ *
+ * 2026-09-04 從三站擴到六站時，這道絆線正常運作了——它擋下了一次
+ * 「內容加了、周邊沒跟上」的提交。要改站數就改這裡，順便把上面那三個問題想一遍。
+ */
+const SITE_IDS = [
+	'bopiliao',
+	'longshan-temple',
+	'moca-taipei',
+	'new-culture-movement',
+	'xiahai-temple',
+	'ximen-red-house'
+] as const;
+
 describe('真實內容', () => {
-	it('三站都載入得到，順序固定', () => {
+	it('六站都載入得到，順序固定', () => {
 		const ids = listPublicSites().map((s) => s.id);
-		expect(ids).toEqual(['bopiliao', 'longshan-temple', 'ximen-red-house']);
+		expect(ids).toEqual([...SITE_IDS]);
 	});
 
 	it('★ 整份回應裡沒有任何 radiusM', () => {
@@ -86,14 +105,15 @@ describe('真實內容', () => {
 		expect(JSON.stringify(listPublicSites())).not.toContain('radius');
 	});
 
-	it('三站現在都是草稿，進不去', () => {
+	it('六站現在都是草稿，進不去', () => {
 		for (const s of listPublicSites()) {
 			expect(s.status).toBe('draft');
 			expect(isPlayable(s.id)).toBe(false);
 		}
 	});
 
-	it('劇情順序是西門紅樓 → 龍山寺 → 剝皮寮', () => {
+	// 劇情層仍然只有萬華三站。大同區那三站是純基礎層，hasStory 為 false。
+	it('劇情順序是西門紅樓 → 龍山寺 → 剝皮寮，而且只有萬華三站有劇情', () => {
 		const order = listPublicSites()
 			.filter((s) => s.hasStory)
 			.sort((a, b) => (a.storyOrder ?? 0) - (b.storyOrder ?? 0))
@@ -103,7 +123,7 @@ describe('真實內容', () => {
 
 	it('伺服器端拿得到判定半徑（給 resolvePresence 用）', () => {
 		const geo = allSiteGeo();
-		expect(geo).toHaveLength(3);
+		expect(geo).toHaveLength(SITE_IDS.length);
 		for (const g of geo) {
 			expect(g.radiusM).toBeGreaterThanOrEqual(20);
 			expect(Array.isArray(g.extraCenters)).toBe(true);

@@ -1,0 +1,36 @@
+# 臺北霞海城隍廟 —— 引導提問
+#
+# ★ 恰好 3 題，寫死，不挑選（content:check #5）。建議 15 字內。
+# 來源：對話內容規劃_v0.1.md（2026-09-04，君和審過）。
+#
+# ★★★ 三題**刻意全部避開姻緣**，這是設計決定，不是漏寫。★★★
+#
+#   這裡是全臺最知名的月老廟，「我什麼時候會遇到對象」「這個人適不適合我」
+#   會是玩家最高頻的問題，不是邊緣情況——而全域護欄第 3 條禁止預測吉凶
+#   與代神明應許。
+#
+#   引導提問等於**幫玩家開口**。我們不主動把話題開到護欄邊上。
+#   姻緣類問法的婉拒屬於 fallbacks.yaml 的 refusal，由玩家自己開口才觸發。
+#
+#   ⚠️ 之後有人想加一題月老的，先讀這一段。
+
+siteId: xiahai-temple
+
+items:
+  - id: so-small
+    text:
+      zhHant: 這間廟怎麼這麼小？
+      en: null
+      ja: null
+
+  - id: how-god-arrived
+    text:
+      zhHant: 城隍爺怎麼來的？
+      en: null
+      ja: null
+
+  - id: the-street
+    text:
+      zhHant: 這條街平常這麼熱鬧？
+      en: null
+      ja: null

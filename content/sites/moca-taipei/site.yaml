@@ -1,0 +1,29 @@
+# 臺北當代藝術館（大同區長安西路 39 號）
+#
+# ⚠️ 座標是從地圖上讀的近似值，**尚未實地量測**（P0-2）。
+# ⚠️ 這一站只有正面廳舍與集會堂是美術館，兩翼是建成國中的教室。
+#    判定半徑要避開校區——實地量測時要特別記這一點。見 soul.yaml 的 taboos。
+
+id: moca-taipei
+
+name:
+  zhHant: 臺北當代藝術館
+  en: null
+  ja: null
+
+tagline:
+  zhHant: 當過學校，當過市政府，現在辦展覽
+  en: null
+  ja: null
+
+geo:
+  lat: 25.051
+  lng: 121.5195
+  radiusM: 40
+  sensingM: 120
+  extraCenters: []
+
+status: draft
+
+hasStory: false
+storyOrder: null

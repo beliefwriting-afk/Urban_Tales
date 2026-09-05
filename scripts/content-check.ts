@@ -28,9 +28,14 @@ const ROOT = resolve(import.meta.dirname, '..');
 const CONTENT = join(ROOT, 'content');
 const SITES_DIR = join(CONTENT, 'sites');
 
-/** 五站齊備時，卡片總數檢查（#7）自動啟用。見下方 check7 的說明。 */
-const EXPECTED_SITE_COUNT = 5;
-const EXPECTED_CARDS = { total: 13, encounter: 5, task: 5, story: 3 } as const;
+/**
+ * 六站全部可遊玩時，卡片總數檢查（#7）自動啟用。見下方 #7 的說明。
+ *
+ * ★ 卡片數是站數推導出來的：每站一張相遇卡、一張任務卡，加上萬華三站的劇情卡。
+ *   改站數就要改這裡（企劃書 §5.6、§6.1）。
+ */
+const EXPECTED_SITE_COUNT = 6;
+const EXPECTED_CARDS = { total: 15, encounter: 6, task: 6, story: 3 } as const;
 
 // ─── 收集器 ──────────────────────────────────────────────────
 
@@ -154,11 +159,10 @@ if (existsSync(cardsPath)) {
 
 // ─── 檢查 #3：史實必填出處，傳說要單列 ───────────────────────
 //
-// 落實企劃書 §4.2 第 5 條。【2026-09-04 改判準】素材庫從「一個 items 陣列、
-// 每條標 kind」改成「一段 facts ＋ 幾條 legends」之後，這條規則的形狀跟著換：
+// 落實企劃書 §4.2 第 5 條。素材庫是「一段 facts ＋ 幾條 legends」，所以：
 //
-//   舊：逐條檢查 kind === '已知史實' 的有沒有 source
-//   新：整段 facts 至少要有一個 sources；傳說歸 legends，本來就不必有出處
+//   · 整段 facts 至少要有一個 sources，而且不能是「網路」「維基」這種敷衍值
+//   · 傳說歸 legends，本來就不必有出處——沒有定論正是它是傳說的原因
 //
 // ★ sources 的 min(1) 由 schema 負責，這裡補兩件 schema 做不到的事：
 //   ① 出處不能是空白字串以外的敷衍值（「網路」「維基」這種等於沒寫）
@@ -204,10 +208,9 @@ for (const b of bundles) {
 
 // ─── 檢查 #4：民間傳說要有，或者明確地沒有 ───────────────────
 //
-// ⚠️ 【2026-09-04 改寫】這一條原本是「引導提問的 topic 都要有對應素材」。
-//    `topic` 欄位隨著挑題邏輯一起移除了（見 content/schema.ts 的說明），
-//    那條規則因此失去依據。**編號沒有重用**——舊的 #4 在 SDD §2.4 有紀錄，
-//    重用會讓「#4 是什麼」在兩份文件裡有兩個答案。
+// ⚠️ **編號沒有重用。** 舊的 #4 是「引導提問的 topic 都要有對應素材」，隨著
+//    `topic` 欄位一起移除了。這是另一條規則，只是接在同一個編號後面——
+//    重用編號會讓「#4 是什麼」在不同文件裡有兩個答案。
 //
 // 新的 #4 守的是另一件事：**空的 legends 必須是刻意的。**
 //    幾乎每個有年代的地方都有說不清的傳說（剝皮寮的地名由來、紅樓的八卦形狀）。
@@ -226,9 +229,9 @@ for (const b of bundles) {
 
 // ─── 檢查 #5：每站引導提問恰好 3 題 ──────────────────────────
 //
-// 【2026-09-04 改判準】原本是 ≥ 12 題。改成**恰好 3**，理由見 content/schema.ts
-// 的 GuidedPromptSchema 說明——一句話：沒有回訪機制，12 題的池子換來的是
-// 「九成題目玩家永遠看不到，但一樣要逐字審」。
+// **恰好 3 題**，理由見 content/schema.ts 的 GuidedPromptSchema 說明——
+// 一句話：沒有回訪機制，多寫的題目九成玩家永遠看不到，但一樣要逐字審。
+// 而且 L2 的版面是固定三個按鈕，多寫的沒地方放。
 //
 // 由 schema 的 .length(3) 負責，這裡只補一個更好讀的訊息。
 // ★ 多寫也是錯：L2 的版面是固定三個按鈕，多出來的沒地方放。
@@ -287,16 +290,16 @@ for (const b of bundles) {
 	scanPlaceholders(b.fallbacks, `${b.dir}/fallbacks`);
 }
 
-// ─── 檢查 #7：卡片總數 13，5/5/3 分佈 ────────────────────────
+// ─── 檢查 #7：卡片總數 15，6/6/3 分佈 ────────────────────────
 //
-// ★ 這一項在五站齊備前無法成立（兩個景點尚未拍板，見 HANDOFF §6）。
-//   所以它「自動啟用」：一旦 content/sites/ 有五站就開始強制。
+// ★ 這一項在所有景點都可遊玩之前無法成立（草稿站沒有卡片）。
+//   所以它「自動啟用」：一旦六站都是 playable 就開始強制。
 //   不是靜默跳過 —— 未啟用時會明確印出來，避免誤以為已經檢查過。
 
 const playableDirs = bundles.filter((b) => b.site?.status === 'playable').map((b) => b.dir);
 const draftDirs = bundles.filter((b) => b.site?.status !== 'playable').map((b) => b.dir);
 
-// ★ 用「可遊玩」站數而不是資料夾數：草稿站沒有卡片，拿它去湊 5 站
+// ★ 用「可遊玩」站數而不是資料夾數：草稿站沒有卡片，拿它去湊站數
 //   會讓 #7 在內容還沒寫完時就開始強制，然後被當成雜訊關掉。
 if (playableDirs.length >= EXPECTED_SITE_COUNT) {
 	const list = cards?.cards ?? [];
@@ -312,7 +315,8 @@ if (playableDirs.length >= EXPECTED_SITE_COUNT) {
 } else {
 	notes.push(
 		`#7 卡片總數檢查【尚未啟用】：目前 ${playableDirs.length}/${EXPECTED_SITE_COUNT} 站可遊玩，` +
-			`五站齊備時自動開始強制 13 張（5 相遇 / 5 任務 / 3 劇情）。`
+			`全部可遊玩時自動開始強制 ${EXPECTED_CARDS.total} 張` +
+			`（${EXPECTED_CARDS.encounter} 相遇 / ${EXPECTED_CARDS.task} 任務 / ${EXPECTED_CARDS.story} 劇情）。`
 	);
 }
 

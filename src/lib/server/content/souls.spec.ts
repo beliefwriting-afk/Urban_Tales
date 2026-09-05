@@ -64,9 +64,27 @@ describe('toPublicSoul —— 白名單', () => {
 	});
 });
 
+/**
+ * ★ 這份清單是**刻意寫死**的，不是從 content/sites/ 掃出來的。
+ *
+ * 掃出來的版本永遠會通過——那等於沒有測試。寫死之後，新增或刪掉一個景點
+ * 一定會讓這幾條紅掉，逼人回來確認：新的站有沒有人格卡？taboos 對得上那個場域嗎？立繪排進 P0-1 了嗎？
+ *
+ * 2026-09-04 從三站擴到六站時，這道絆線正常運作了——它擋下了一次
+ * 「內容加了、周邊沒跟上」的提交。要改站數就改這裡，順便把上面那三個問題想一遍。
+ */
+const SITE_IDS = [
+	'bopiliao',
+	'longshan-temple',
+	'moca-taipei',
+	'new-culture-movement',
+	'xiahai-temple',
+	'ximen-red-house'
+] as const;
+
 describe('真實內容', () => {
-	it('三站的人格卡都載入得到', () => {
-		expect(soulSiteIds()).toEqual(['bopiliao', 'longshan-temple', 'ximen-red-house']);
+	it('六站的人格卡都載入得到', () => {
+		expect(soulSiteIds()).toEqual([...SITE_IDS]);
 	});
 
 	it('★ 真實資料削過之後也不含 persona', () => {
@@ -78,7 +96,7 @@ describe('真實內容', () => {
 		}
 	});
 
-	it('三站現在都還沒有立繪（P0-1 未完成）', () => {
+	it('六站現在都還沒有立繪（P0-1 未完成）', () => {
 		// 這條之後會失敗——那正是它的用處：立繪做好的那一刻，
 		// 有人得回來把「playable 的站 art 不得為 null」這件事想一遍。
 		for (const id of soulSiteIds()) {

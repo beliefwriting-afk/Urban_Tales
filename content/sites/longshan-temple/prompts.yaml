@@ -1,0 +1,31 @@
+# 艋舺龍山寺 —— 引導提問
+#
+# ★ 恰好 3 題，寫死，不挑選（content:check #5）。建議 15 字內。
+# 來源：對話內容規劃_v0.1.md（2026-09-04，君和審過）。
+#
+# 三題的設計：一題問神明（最多人想問的，也最靠近護欄，所以要由我們定調）、
+# 一題問建築（帶到他在意的「重蓋」）、一題問香爐（玩家一進門就會發現的現象）。
+#
+# ⚠️ 三題都不問「我求的事會不會實現」這一類——引導提問等於幫玩家開口，
+#    不主動把話題開到護欄邊上。那類問法的轉向台詞屬於 fallbacks.yaml 的 refusal。
+
+siteId: longshan-temple
+
+items:
+  - id: who-is-worshipped
+    text:
+      zhHant: 這裡拜的是誰？
+      en: null
+      ja: null
+
+  - id: the-pillars
+    text:
+      zhHant: 這些柱子有故事嗎？
+      en: null
+      ja: null
+
+  - id: no-incense
+    text:
+      zhHant: 為什麼沒有香爐？
+      en: null
+      ja: null

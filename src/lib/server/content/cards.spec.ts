@@ -35,16 +35,26 @@ describe('toPublicCard', () => {
 });
 
 describe('真實內容', () => {
-	it('cards.yaml 現在是空的（兩個景點未拍板，見 cards.yaml 的說明）', () => {
+	it('cards.yaml 現在是空的（六站都還沒有卡，見 cards.yaml 的說明）', () => {
 		// 這條之後會失敗——那正是它的用處：第一張卡定義出來時，
 		// 有人得回來確認 content:check #7b 有沒有跟著開始擋。
 		expect(listCards()).toEqual([]);
 	});
 
-	it('★ 三站現在都查不到相遇卡 —— 所以它們也發不出卡', () => {
+	it('★ 六站現在都查不到相遇卡 —— 所以它們也發不出卡', () => {
 		// 這解釋了為什麼切片 4 的成功路徑現在端到端測不到，
 		// 而不是「測了但沒發現壞掉」。
-		for (const id of ['bopiliao', 'longshan-temple', 'ximen-red-house']) {
+		//
+		// ⚠️ 第一站轉 playable 的那一刻，content:check #7b 就會要求
+		//    cards.yaml 有那一站的相遇卡（恰好一張）。撞到的會是 #7b，不是 #7。
+		for (const id of [
+			'bopiliao',
+			'longshan-temple',
+			'moca-taipei',
+			'new-culture-movement',
+			'xiahai-temple',
+			'ximen-red-house'
+		]) {
 			expect(getEncounterCard(id)).toBeNull();
 		}
 	});

@@ -1,0 +1,29 @@
+# 西門紅樓 —— 引導提問
+#
+# ★ 恰好 3 題，寫死，不挑選（content:check #5）。建議 15 字內。
+# ★ 按下去等同玩家自己打字送出，走完整 speak() 流程，不繞過任何檢查。
+# 來源：對話內容規劃_v0.1.md（2026-09-04，君和審過）。
+#
+# 三題的設計：一題問身分（她最想講的）、一題問形狀（必踩的傳說）、
+# 一題問現在（把她帶回她在意的擺攤的人）。
+
+siteId: ximen-red-house
+
+items:
+  - id: who-are-you
+    text:
+      zhHant: 請問您是？
+      en: null
+      ja: null
+
+  - id: architecture
+    text:
+      zhHant: 您的建築風格好特別！
+      en: null
+      ja: null
+
+  - id: whats-here
+    text:
+      zhHant: 這裡有什麼特別的嗎？
+      en: null
+      ja: null

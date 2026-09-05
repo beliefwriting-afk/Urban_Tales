@@ -1,0 +1,28 @@
+# 臺灣新文化運動紀念館 —— 引導提問
+#
+# ★ 恰好 3 題，寫死，不挑選（content:check #5）。建議 15 字內。
+# 來源：對話內容規劃_v0.1.md（2026-09-04，君和審過）。
+#
+# 三題的設計：一題問身分（他會講到最細的日期）、一題問扇形拘留所（帶到他的裂縫，
+# 也就是水牢）、一題問蔣渭水（他最值得講的那句更正）。
+
+siteId: new-culture-movement
+
+items:
+  - id: was-police-station
+    text:
+      zhHant: 這裡以前是警察署？
+      en: null
+      ja: null
+
+  - id: fan-shaped-room
+    text:
+      zhHant: 那個扇形房間是什麼？
+      en: null
+      ja: null
+
+  - id: chiang-wei-shui
+    text:
+      zhHant: 蔣渭水關在這裡嗎？
+      en: null
+      ja: null

@@ -1,0 +1,28 @@
+# 臺北當代藝術館 —— 引導提問
+#
+# ★ 恰好 3 題，寫死，不挑選（content:check #5）。建議 15 字內。
+# 來源：對話內容規劃_v0.1.md（2026-09-04，君和審過）。
+#
+# 三題的設計：一題問身世（她在意到不成比例的東西）、一題問典藏（她的矛盾）、
+# 一題問隔壁（她的裂縫，上課鐘）。
+
+siteId: moca-taipei
+
+items:
+  - id: what-was-here
+    text:
+      zhHant: 這棟樓以前是什麼？
+      en: null
+      ja: null
+
+  - id: permanent-collection
+    text:
+      zhHant: 這裡有常設展嗎？
+      en: null
+      ja: null
+
+  - id: the-school
+    text:
+      zhHant: 隔壁是學校嗎？
+      en: null
+      ja: null

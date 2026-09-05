@@ -1,0 +1,30 @@
+# 臺北霞海城隍廟（大同區迪化街一段 61 號）
+#
+# ⚠️ 座標是從地圖上讀的近似值，**尚未實地量測**（P0-2）。
+# ⚠️ 廟身只有四十幾坪，是六站裡最小的。判定半徑不能照抄別站——
+#    太大會把整條迪化街都算進來，太小又會被 GPS 誤差擋在門口。
+#    實地量測時要在門口、對街騎樓、巷口各記一次讀數。見 SDD §5.5。
+
+id: xiahai-temple
+
+name:
+  zhHant: 臺北霞海城隍廟
+  en: null
+  ja: null
+
+tagline:
+  zhHant: 四十幾坪，擠著六百多尊，還有一整條街的行情
+  en: null
+  ja: null
+
+geo:
+  lat: 25.0556
+  lng: 121.51
+  radiusM: 40
+  sensingM: 120
+  extraCenters: []
+
+status: draft
+
+hasStory: false
+storyOrder: null
