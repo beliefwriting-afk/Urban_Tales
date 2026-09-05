@@ -550,8 +550,25 @@ for (const b of bundles) {
 		notes.push(
 			`${b.dir} 還缺：${missing.join('、')}\u3000（補齊後把 site.yaml 的 status 改成 playable）`
 		);
+		continue;
+	}
+
+	// ★ 五份檔案齊了**不等於**可以改 playable。宣告的那一刻還會撞到 #7b 與 #8，
+	//   所以在這裡就把還缺的東西講出來——否則有人照著這行訊息去改 status，
+	//   會當場被兩條他沒看過的規則擋下來。
+	//   同一個原則：不讓「還沒過的檢查」看起來像「已經過了」。
+	const blockers: string[] = [];
+	if (b.soul?.art === null) {
+		blockers.push('soul.yaml 的 art 還是 null（#8，等角色立繪）');
+	}
+	if (!(cards?.cards ?? []).some((c) => c.kind === 'encounter' && c.siteId === b.dir)) {
+		blockers.push(`cards.yaml 裡沒有 ${b.dir} 的相遇卡（#7b）`);
+	}
+
+	if (blockers.length > 0) {
+		notes.push(`${b.dir} 五份檔案都在了。改成 playable 之前還要：${blockers.join('；')}`);
 	} else {
-		notes.push(`${b.dir} 五份檔案都在了，但 status 還是 draft —— 審完就可以改成 playable`);
+		notes.push(`${b.dir} 都齊了，#7b 與 #8 也都過得了 —— 審完就可以把 status 改成 playable`);
 	}
 }
 
