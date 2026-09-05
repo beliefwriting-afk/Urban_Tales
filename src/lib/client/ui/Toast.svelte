@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * 畫面下方的短暫提示。
-	 * 會自己消失，等不及的話點它一下就收掉（前身專案的行為，照抄）。
+	 * 會自己消失，等不及的話點它一下就收掉。
 	 * z 序最高——從浮空視窗裡觸發的提示不能被視窗自己蓋住。
 	 */
 	import { session } from '$lib/client/mock/session.svelte';

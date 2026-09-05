@@ -1,7 +1,7 @@
 /**
  * ★★★ 全系統唯一可以呼叫 AI 的地方 ★★★
  *
- * SDD §6.1。企劃書 §4.2 記錄了前身專案的失敗原因：
+ * SDD §6.1。企劃書 §4.2 記錄的失敗模式：
  *   「規則只掛在主要對話路徑上，其餘生成路徑繞過了它。」
  *
  * 所有會產出「靈魂說出口的文字」的路徑 —— 對話、引導提問、任務台詞、
@@ -52,6 +52,7 @@ export type SpeakResult = {
  * 靈魂說話。
  *
  * ★ 這個函式永遠不 throw、永遠回傳合法的 SpeakResult。
+ *   （⚠️ 目前是 stub，**會 throw**；切片 5 實作之後這條保證才成立。）
  *   企劃書 §8.7：AI 失效一律回退預寫台詞，且視為正常回應，不呈現為錯誤。
  *   呼叫端的 HTTP 狀態一律 200 —— 前端不存在「對話錯誤」這個 UI 狀態。
  *
@@ -68,7 +69,8 @@ export async function speak(ctx: SpeakContext): Promise<SpeakResult> {
 	//                            → fallback 'quota' → fallbacks.quotaReached
 	//  4. 全域每日額度（usage_global_daily）
 	//                            → fallback 'global_cap'
-	//                            ★ 對玩家的表現必須與第 3 階完全相同（§6.5）
+	//                            ★ 對玩家的表現必須與 SDD §6.5 的**第 3 階（AI 失效）**
+	//                              完全相同——注意那是 §6.5 的「階」，不是這裡的「步」
 	//                              走 fallbacks.aiUnavailable，不是 quotaReached
 	//  5. 輸入端主題檢查（明確禁忌關鍵詞）
 	//                            → fallback 'blocked_topic' → fallbacks.refusal

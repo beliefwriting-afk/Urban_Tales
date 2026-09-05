@@ -33,7 +33,7 @@ export type SiteState = {
 	distanceM: number;
 	/** 進了感應範圍：畫漣漪，告訴玩家這裡有東西 */
 	sensed: boolean;
-	/** 進了召喚範圍：點得動。對應 SDD §5.5 的到場判定 */
+	/** 進了召喚範圍：點得動。對應 SDD §5.2 的到場判定演算法 */
 	reachable: boolean;
 };
 
@@ -108,7 +108,7 @@ class Session {
 	/**
 	 * 上一句還在等回覆。
 	 * ⚠️ 這不是載入動畫的旗標，是**額度保護**——連按兩次 Enter 會送出兩個請求，
-	 * 每一次都真的花錢。前身專案就是這樣設計的，照抄。
+	 * 每一次都真的花錢。
 	 */
 	pending = $state(false);
 
@@ -117,7 +117,7 @@ class Session {
 	 *
 	 * ★ 設計上的關鍵：漣漪是**動作的回饋**，不是持續的狀態指示。
 	 *   如果走到哪都自己亮，「呼喚靈魂」就變成一顆確認你已經知道的事的按鈕。
-	 *   （A.L. 2026-08-25 拍板，與前身專案的持續漣漪不同。）
+	 *   （A.L. 2026-08-25 拍板：不做持續漣漪。）
 	 */
 	pulsing = $state(false);
 
@@ -267,12 +267,12 @@ class Session {
 		}
 		if (this.mode === 'chat') {
 			this.mode = 'camera';
-			// 相機模式要把畫面留給實景（前身專案的決定，照抄）
+			// 相機模式要把畫面留給實景
 			this.menuOpen = false;
 			this.openWindow = null;
 			return;
 		}
-		// 地圖狀態下按 ◎ 等於「查看附近靈魂」——前身專案的設計，照抄
+		// 地圖狀態下按 ◎ 等於「查看附近靈魂」
 		this.lookAround();
 	}
 

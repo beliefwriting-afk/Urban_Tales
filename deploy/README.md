@@ -73,7 +73,7 @@ Compute Engine → 建立執行個體
 
 | 欄位 | 設定 |
 |---|---|
-| 名稱 | `urban-tales`（與 `larp` 那台分開） |
+| 名稱 | `urbantales`（與 `larp` 那台分開；★ 無連字號，與現況一致） |
 | 地區 | **us-central1**（與 larp 同區） |
 | 機型 | **e2-small**（2 vCPU 共用、2GB RAM）—— 理由見下 |
 | 作業系統 | **Ubuntu 24.04 LTS** |

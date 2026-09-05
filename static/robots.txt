@@ -1,3 +1,10 @@
-# allow crawling everything by default
+# 全站開放爬取，這是刻意的。
+#
+# 《城市物語》是公開的作品集展示站（https://urbantales.alcloud.us），
+# 希望被搜尋得到。站上沒有個人資料可被爬走：資料庫 schema 不存經緯度
+# （README「隱私硬約束」），玩家識別只有匿名 cookie。
+#
+# 展示模式的通關密語（/demo?key=…）不靠 robots.txt 保護——它是 bearer secret，
+# 靠 DEMO_PASSPHRASE 常數時間比對（SDD §5.4）。在這裡列 Disallow 反而等於公告路徑存在。
 User-agent: *
 Disallow:

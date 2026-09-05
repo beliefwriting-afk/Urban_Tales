@@ -97,9 +97,9 @@ console.log(line);
 if (failed > 0) {
 	console.error(`❌ 護欄失效：${failed} 個案例不符預期。`);
 	console.error('');
-	console.error('這代表 eslint.config.js 的 AI_SDK_FENCE / AI_CLIENT_FENCE 沒有正常運作。');
+	console.error('這代表 eslint.config.js 的 FENCE_DEFAULT / FENCE_EXEMPT_AI_CLIENT / FENCE_EXEMPT_SPEAK 沒有正常運作。');
 	console.error('在修好之前，任何人都可以繞過 speak() 直接呼叫 AI —— 也就繞過全部的內容治理規則。');
-	console.error('這正是企劃書 §4.2 記錄的前身專案失敗原因。');
+	console.error('這正是企劃書 §4.2 要避免的失敗模式。');
 	console.error(line);
 	process.exit(1);
 }

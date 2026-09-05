@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 建置期內容驗證 —— SDD §2.4 的十項，外加隱私 schema 檢查。
+ * 建置期內容驗證 —— SDD §2.4 的十項 ＋ #3b／#7b，外加隱私與範本金鑰掃描。
  *
  * 在 CI 與 prebuild 執行，★ 驗不過就不給部署 ★。
  *
@@ -255,7 +255,7 @@ for (const b of bundles) {
 			warn(
 				'#5 題數',
 				`${b.dir}/prompts.yaml 的 "${item.id}" 有 ${len} 字 —— ` +
-					`它是可點擊的按鈕，建議 15 字內（前身撞過版面才改短的）`
+					`它是可點擊的按鈕，建議 15 字內（長了排不下，這是踩出來的）`
 			);
 		}
 	}
@@ -535,7 +535,7 @@ console.log(
 );
 console.log(`\u3000可遊玩：${playableDirs.length ? playableDirs.join(', ') : '（無）'}`);
 if (draftDirs.length > 0) {
-	// ★ 草稿站每次建置都要被唸出來。前身專案的教訓是「表建好了但沒人生產內容」，
+	// ★ 草稿站每次建置都要被唸出來。「表建好了但沒人生產內容」是內容層最常見的爛法，
 	//   對策不是禁止半成品存在，是不讓它安靜地存在。
 	console.log(`\u3000🚧 草稿（進不去）：${draftDirs.join(', ')}`);
 }

@@ -11,11 +11,12 @@
 
 ## 文件
 
-接手這個專案請照這個順序讀：
+接手這個專案先讀 `CONTEXT.md`，再讀 `HANDOFF.md`。
+**完整文件地圖（七份，附各自是什麼）在 `CONTEXT.md`。**
 
 | 檔案                         | 是什麼                                     |
 | ---------------------------- | ------------------------------------------ |
-| `CONTEXT.md`                 | 專案入口與現況                             |
+| `CONTEXT.md`                 | 專案入口與現況。**文件地圖也在這裡**       |
 | `HANDOFF.md`                 | 上一次做到哪、下一步做什麼                 |
 | `Urban_Tales_企劃書_v0.2.md` | **權威文件**。做什麼／為什麼／刻意不做什麼 |
 | `Urban_Tales_SDD_v0.1.md`    | **系統設計**。怎麼實作                     |
@@ -68,7 +69,7 @@ npm run dev
 
 對話、引導提問、任務台詞、劇情、保底台詞 —— 全景點適用，不分景點。
 
-前身專案的失敗原因（企劃書 §4.2）是規則只掛在主要對話路徑上，其餘生成路徑
+護欄失效的典型原因（企劃書 §4.2）是規則只掛在主要對話路徑上，其餘生成路徑
 繞過了它。本專案把這件事從**紀律問題**變成**機械問題**：
 
 ```
@@ -95,7 +96,7 @@ src/lib/server/soul/speak.ts    ← 唯一可以 import AI client 的檔案
 content/            內容層（進 Git，不做 CMS）
   schema.ts           ★ Zod 定義，型別與驗證的單一事實來源
   guardrails.yaml     ★ 全站唯一一份安全界線
-  cards.yaml          15 張成就卡（6 相遇 ＋ 6 任務 ＋ 3 劇情）
+  cards.yaml          15 張成就卡的定義（6/6/3）—— ★ 目前是空的，等第一站轉 playable
   sites/<id>/         每站五個 YAML（草稿站只要 site.yaml）。目前六站，全部是草稿
   _template/          新增景點時複製這裡
 deploy/             GCP 部署（bootstrap.sh 一鍵、systemd、nginx）
@@ -123,6 +124,6 @@ static/art/         立繪、圖層、像素卡框
 
 - **不做背景定位追蹤** —— 僅在玩家主動使用時前景取得位置
 - **座標判定後即丟棄** —— 資料庫 schema 裡沒有任何經緯度欄位，
-  `content:check` 有一條檢查會掃 `lat`／`lng`／`geography` 欄位，出現即建置失敗
+  `content:check` 有一條檢查會掃 `lat`／`lng`／`latitude`／`longitude`／`geography`／`geometry`／`coord`／`coords`／`location` 這幾個欄位名，出現即建置失敗
 - **不上傳、不保存玩家照片** —— 整個系統沒有能接收圖片的端點
 - **訪客模式不蒐集個資** —— `players` 表無 email、姓名、IP

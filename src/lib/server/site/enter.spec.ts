@@ -103,7 +103,7 @@ describe('decideEnter —— 拒絕', () => {
 
 	it('★ playable 卻沒有相遇卡定義 → 500，而且訊息要指名 content:check', () => {
 		// 這是內容層與程式碼不一致，不是玩家做錯事。安靜跳過的話玩家會
-		// 永遠少一張卡而沒有人發現——那正是前身專案的失敗形狀。
+		// 永遠少一張卡而沒有人發現——那是最難查的一種壞法。
 		const d = decideEnter(base({ encounterCardId: null }));
 		expect(d).toMatchObject({ ok: false, status: 500, code: 'card_undefined' });
 		expect(d.ok === false && d.message).toContain('content:check');

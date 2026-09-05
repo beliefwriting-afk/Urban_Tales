@@ -3,7 +3,7 @@
  *
  * ★ 這個檔案刻意很薄。所有會拒絕玩家的判斷都在 `decideEnter()` 那支純函式裡，
  *   這裡只做三件事：取材料 → 問它 → 照結果寫資料庫。
- *   理由見 enter.ts 檔頭（§13.4 ② 的教訓：判準要選測得到的）。
+ *   理由見 enter.ts 檔頭（HANDOFF §13.4 ② 的教訓：判準要選測得到的）。
  *
  * ★★★ 在場憑證走 `X-Presence-Token` header，不走 Authorization。★★★
  *
@@ -17,7 +17,7 @@
  *   走 header 而不是 body 還有一個實務理由：`/api/chat` 與 `/api/site/:id/photo-task`
  *   都要帶同一張憑證。放 body 的話三支端點各自定義一次欄位，三份 schema 會漂移。
  *
- *   ⚠️ JWT 是純 ASCII，不會踩到 §13.4 ④ 的 ByteString 坑。
+ *   ⚠️ JWT 是純 ASCII，不會踩到 HANDOFF §13.4 ④ 的 ByteString 坑。
  *
  * 給 Python 背景的對照：
  *   `params.id` ≈ FastAPI 的路徑參數 `async def enter(id: str)`。

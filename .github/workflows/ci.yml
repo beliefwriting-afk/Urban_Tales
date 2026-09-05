@@ -21,7 +21,7 @@ jobs:
       # ─── 護欄：這三步是內容治理與安全界線的機械保險 ───
       # 任何一步失敗都不給部署。順序照 SDD §13.3。
 
-      - name: 內容驗證（SDD §2.4 十項）
+      - name: 內容驗證（SDD §2.4）
         run: npm run content:check
 
       - name: Lint（含 speak() 唯一出口封鎖，SDD §6.1）
