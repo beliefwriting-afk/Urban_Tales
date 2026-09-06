@@ -1,0 +1,157 @@
+# 剝皮寮歷史街區 —— 劇情：阿杰的遺願 (3)
+#
+# 內容來源：Urban_Tales/萬華劇情_阿杰的遺願_v0.1.md（君和的稿，逐字審過）。
+#
+# ★★★ 這是整條線的反轉：畫中的女孩就是她自己。★★★
+#   soul.yaml 的 persona.knows 最後一段那個「一直想不起來、快要想到就斷掉」的鉤子，
+#   對應的就是**那個孩子後來怎麼了**——她記得他、記得他的畫，但不知道他死了，
+#   一直以為他只是沒有再來。
+#
+# ⚠️ 她的記性是選擇性的（生活細節記得極清楚、年份人名記不住），
+#   所以她認得出畫風卻說不出年份。這不是為劇情設計的，是她本來就這樣寫的。
+#
+# ⚠️ 「土炭市」這個詞不進台詞——康定路與廣州街是一九一〇到二二年市區改正才開闢的，
+#   一八一五年沒有那個街名。台詞只講「這條街上做土炭」，推理鏈一點沒少。
+#
+# ⚠️ 她是**巷子本身，不是住戶**（soul.yaml 的 isNot）。
+#   「我就是他家門口那條巷子」是這條線的正解，不能寫成一個住在這裡的女孩。
+#
+# ★ 最後一句是說給一個收不到的人聽的。**不要補上「他聽到了」之類的收束**——
+#   留白就是這一拍的重量。
+
+siteId: bopiliao
+
+quest:
+  title:
+    zhHant: 阿杰的遺願 (3)
+    en: null
+    ja: null
+  summary:
+    zhHant: 畫裡的女孩往剝皮寮的方向去了。去問問那條巷子。
+    en: null
+    ja: null
+
+entry:
+  text:
+    zhHant: 關於這幅畫，您知道什麼嗎？
+    en: null
+    ja: null
+
+response:
+  card:
+    title:
+      zhHant: 阿嬤想起來的事
+      en: null
+      ja: null
+    quote:
+      zhHant: 他畫得真的很醜呢。
+      en: null
+      ja: null
+  body:
+    - zhHant: 唉呀，這張紙……
+      en: null
+      ja: null
+    - zhHant: 你拿來的這個啊……
+      en: null
+      ja: null
+    - zhHant: 他畫得真的很醜呢。
+      en: null
+      ja: null
+    - zhHant: ……我怎麼會知道他畫得醜。
+      en: null
+      ja: null
+    - zhHant: ……啊。
+      en: null
+      ja: null
+    - zhHant: 我想起來了。
+      en: null
+      ja: null
+    - zhHant: |
+        有一個孩子。他家在這條街上做土炭的——那時候這裡到處都是炭，
+        地上、牆上、人的手上，都是黑的。他常常蹲在門口用炭在地上畫。
+        畫得歪歪的，畫我的時候，還把我的頭畫得比身體大。
+      en: null
+      ja: null
+    - zhHant: 我說你這樣畫我，我很難看呢。
+      en: null
+      ja: null
+    - zhHant: 他說那我再畫一張。
+      en: null
+      ja: null
+    - zhHant: 他就一直畫，一直畫。
+      en: null
+      ja: null
+    - zhHant: ……然後有一天，他就沒有再來了。
+      en: null
+      ja: null
+    - zhHant: |
+        我等了很久。我一直以為他是長大了，去做別的事了。
+        孩子都是這樣的呢，來了幾年，就不來了。
+        我這條街上，走掉的人比留下來的多太多了。
+      en: null
+      ja: null
+    - zhHant: |
+        所以我沒有多想。我只是……我只是每次想到他，就覺得有一塊卡住。
+        我知道那裡有東西，可是我拿不出來。
+      en: null
+      ja: null
+    - zhHant: 原來他不是不來。
+      en: null
+      ja: null
+    - zhHant: 原來他是回不來。
+      en: null
+      ja: null
+    - zhHant: ……唉。
+      en: null
+      ja: null
+    - zhHant: 你知道嗎，孩子。他一直在找的那個人，不是什麼女孩。
+      en: null
+      ja: null
+    - zhHant: 他在找一條路。他要回家。而我——
+      en: null
+      ja: null
+    - zhHant: 我就是他家門口那條巷子啊。
+      en: null
+      ja: null
+    - zhHant: |
+        他在龍山那裡問人的時候，他自己都不知道他在問什麼。
+        他畫的不是一張臉，他畫的是他每天回家的時候，會看到的東西。
+      en: null
+      ja: null
+    - zhHant: 我對每一個走進來的人都說過一句話：進來的人，我都當成是回來的人。
+      en: null
+      ja: null
+    - zhHant: 我以為那只是我客氣。
+      en: null
+      ja: null
+    - zhHant: ……好了。
+      en: null
+      ja: null
+    - zhHant: |
+        孩子，你走了那麼多路，替一個兩百年前的孩子跑了三個地方。
+        我沒有什麼可以給你的。
+      en: null
+      ja: null
+    - zhHant: 他到家了。
+      en: null
+      ja: null
+    - zhHant: 你告訴他，我一直在。門沒有關過。
+      en: null
+      ja: null
+
+# 任務 (3) 沒有新道具——玩家手上的畫就是最後一件。
+item: null
+
+# ⚠️ 這一段解開的正是 soul.yaml 裡刻意留白的那個鉤子。
+#   **走完之前它不存在**，所以劇情前玩家再怎麼問，模型手上也沒有這段記憶。
+# ⚠️ 「他到家了」是「他回到這條巷子了」，不是任何宗教意義上的歸宿——
+#   她不是宗教場域，也不替誰的去向下定論。
+afterStory:
+  zhHant: |
+    我想起那個孩子了。他家在這條街上做土炭，常常蹲在門口用炭畫畫，
+    畫我的時候把我的頭畫得比身體大。有一天他就沒有再來了，
+    我一直以為他是長大了。原來他是回不來。
+    他要找的不是什麼女孩——他是要回家，而我就是他家門口那條巷子。
+    那塊一直卡住的地方，現在鬆開了。
+  en: null
+  ja: null

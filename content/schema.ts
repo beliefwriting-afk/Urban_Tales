@@ -270,6 +270,124 @@ export const FallbackSchema = z.object({
 export type FallbackFile = z.infer<typeof FallbackSchema>;
 export type FallbackReasonKey = keyof FallbackFile['lines'];
 
+// ─── 劇情（P3）────────────────────────────────────────────────
+
+/**
+ * 劇情層。**一站一份**：`content/sites/<site-id>/story.yaml`。
+ *
+ * 只有 `site.yaml` 標了 `hasStory: true` 的站才有這個檔（目前是萬華三站）。
+ * 順序不在這裡——它在 `site.yaml` 的 `storyOrder`，那是「這一站在線上的位置」，
+ * 屬於景點的屬性，不是劇情內容的屬性。
+ *
+ * 給 Python 背景的對照：這整個 z.object 就是一個 pydantic model，
+ * 巢狀的 z.object 就是巢狀的 model，z.array(X) ≈ list[X]。
+ *
+ * ★★★ 為什麼不用 SDD §8.3 提案的 `nodes[] + next` 指標 ★★★
+ *
+ *   那套是為**分支敘事**設計的：節點互相指來指去，玩家的選擇決定走哪一條。
+ *   而〈阿杰的遺願〉這條線沒有分支——一個入口、一段長回應、完成，三站都一樣。
+ *   用節點圖表達一條直線，等於維護一堆永遠只有一個出口的指標，
+ *   而且每一個 `next` 都是一次可以指錯的機會（指到不存在的 id、指成環）。
+ *
+ *   本專案已經第三次拿掉過度複雜的內容結構了（materials 的 items→facts、
+ *   prompts 的 12 題→3 題，以及這一次）。判準每次都一樣：
+ *   **這個欄位玩家看得到嗎？不做會怎樣？**
+ *
+ *   ⚠️ 哪天真的要分支，那時候再改 schema——改一個沒有分支的 schema，
+ *   比維護一個沒人走的岔路便宜。
+ */
+export const StorySchema = z.object({
+	siteId: z.string(),
+
+	/**
+	 * 任務視窗裡的那一欄。
+	 *
+	 * title 例：「阿杰的遺願 (1)」。三站的編號要對得上 storyOrder。
+	 * summary 是玩家展開任務欄位後看到的說明——它要能讓一個放了三天才回來的玩家
+	 * 知道「我現在該去哪、該做什麼」，不是劇情摘要。
+	 */
+	quest: z.object({
+		title: LocalizedText,
+		summary: LocalizedText
+	}),
+
+	/**
+	 * 劇情期間 L2 多出來的那個選項（★ 獨立一列，不併進三題引導提問）。
+	 *
+	 * ⚠️ 它跟 `prompts.yaml` 的三題**只是長得像，性質完全不同**：
+	 *   引導提問按下去等同玩家自己打字送出，走完整 speak()，答案由 AI 生成；
+	 *   這一個按下去回的是下面 `response` 的預寫台詞，**一個字都不經 AI**。
+	 *
+	 * 版面上因此也要不一樣——長得一樣會讓玩家以為四題是同一種東西。
+	 */
+	entry: z.object({
+		text: LocalizedText
+	}),
+
+	/**
+	 * 靈魂的回應。**不塞進對話氣泡**，走回憶卡 ＋ 全螢幕閱讀視窗。
+	 *
+	 * ★ 為什麼：三站的回應是 300／500／600 字，而對話面板在手機上看得到 6–8 行。
+	 *   一則氣泡要捲四五次，還會把玩家自己剛講的話擠出畫面。
+	 *   這段文字的性質是「一段回憶」不是「一則訊息」——介面的形狀要對得上內容的性質。
+	 */
+	response: z.object({
+		/** 對話框裡那張卡的卡面：標題一行、引句一行。★ 引句不得劇透 */
+		card: z.object({
+			title: LocalizedText,
+			quote: LocalizedText
+		}),
+		/**
+		 * 閱讀視窗的內文，**一段一個元素**。
+		 *
+		 * 分段是節奏，不是排版：阿嬤那句「……我怎麼會知道他畫得醜」自己站一段，
+		 * 跟塞在大段中間完全是兩件事。所以這裡是陣列而不是一整段字串——
+		 * 一整段字串的話，段落之間的空行遲早會在某次複製貼上時被壓掉。
+		 */
+		body: z.array(LocalizedText).min(1)
+	}),
+
+	/**
+	 * 這個任務的道具，可以沒有（第三個任務就沒有）。
+	 *
+	 * 取得時機是**機制**不是內容，所以不寫在這裡：任務 (1) 的道具在首次進入
+	 * 該站 L2 時取得，其餘在前一個任務完成時取得。
+	 */
+	item: z
+		.object({
+			id: z.string().regex(/^[a-z0-9-]+$/),
+			name: LocalizedText,
+			/** 道具說明，跟劇情回應共用同一個閱讀器，一樣一段一個元素 */
+			body: z.array(LocalizedText).min(1),
+			/**
+			 * 圖片路徑。**可以是 null**——「女孩的畫」在立繪做出來之前先用文字描述，
+			 * 圖後補。跟 SoulSchema.art 同一個道理：文字與圖是兩條可以平行的軌道。
+			 */
+			art: z.string().nullable().default(null)
+		})
+		.nullable()
+		.default(null),
+
+	/**
+	 * ★★★ 這一格是「劇情不劇透」的機制。★★★
+	 *
+	 * 這一站的劇情走完之後，這段文字才會被追加進 system prompt 的人格段。
+	 *
+	 * 為什麼需要它：劇情中玩家可以自由發問（走 speak() 的 origin: 'story-node'），
+	 * 而剝皮寮的反轉是靠 `soul.yaml` 的 persona.knows 刻意留白撐住的
+	 * （「有一件事我一直想不起來」，而且明文寫著不要編造、不要暗示方向）。
+	 *
+	 * 如果靠「叮嚀模型不要提前講」，那是一條寫在 prompt 裡、可以被繞過的規則。
+	 * 改成「走完之前根本不給它那段記憶」，模型想劇透也無從劇透——
+	 * **不是要求它不說，是它不知道。**
+	 *
+	 * 同一個道理在別處也用過：radiusM 不進 API 回應、persona 不進 toPublicSoul。
+	 * 不該外洩的東西，最可靠的做法是它根本不在那一側。
+	 */
+	afterStory: LocalizedText.nullable().default(null)
+});
+export type Story = z.infer<typeof StorySchema>;
+
 // ─── 成就卡 ──────────────────────────────────────────────────
 
 export const CardKind = z.enum(['encounter', 'task', 'story']); // 相遇 / 任務 / 劇情

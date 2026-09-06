@@ -1144,35 +1144,46 @@ player_site_state.story_state:  JSONB，存目前節點 ID 與分支選擇
   （企劃書 §5.5：「未開啟劇情的玩家不損失任何東西」）
 ```
 
-**劇情節點格式（★ 這是提案，不是 schema）**
+**`story.yaml` 的形狀（2026-09-06 定案）**
 
-⚠️⚠️ **`story.yaml` 目前完全不存在於任何機制裡**，動工前要先知道：
-
-- `content/schema.ts` **沒有 `StorySchema`**（只有 Site／Soul／Material／GuidedPrompt／
-  Fallback／Card／Guardrails 七個）
-- `content/_template/` **沒有 `story.yaml`**（只有五個範本）
-- `scripts/content-check.ts` 的 `PLAYABLE_FILES` 不含它，`#2` 完整性也不驗它
-  ——**現在放一份 `story.yaml` 進去，不會被任何檢查看到**
-
-**所以劇情層動工的第一件事是補 schema 與 `content:check`，不是寫台詞。**
-底下這個形狀只是起點，可以整個推翻——本專案已經兩次推翻過度複雜的內容結構
-（materials 的 items→facts、prompts 的 12 題→3 題），先問「這個欄位玩家看得到嗎」。
+一站一份：`content/sites/<site-id>/story.yaml`，只有 `hasStory: true` 的站才有。
+Schema 是 `content/schema.ts` 的 `StorySchema`，範本在 `content/_template/story.yaml`。
 
 ```yaml
-nodes:
-  - id: rh-01
-    kind: dialogue          # dialogue | choice | task | transition
-    speaker: soul
-    text: { zhHant: "..." }
-    next: rh-02
-  - id: rh-02
-    kind: choice
-    options:
-      - text: { zhHant: "..." }
-        next: rh-03a
+siteId: longshan-temple
+quest: { title, summary }          # 任務視窗裡的那一欄
+entry: { text }                    # 劇情期間 L2 多出來的選項（★ 獨立一列）
+response:
+  card: { title, quote }           # 對話框裡的回憶卡，引句不劇透
+  body: [ 段落, 段落, ... ]        # 全螢幕閱讀視窗的內文，一段一個元素
+item: { id, name, body, art } | null   # 這個任務的道具
+afterStory: LocalizedText | null   # ★ 見下
 ```
 
-**劇情台詞是預寫的，不經 AI**——它們是逐字審過的成品。但**劇情中若允許玩家自由發問，那條路徑必須走 `speak()`**（`origin: 'story-node'`），護欄照樣生效。
+**★ 沒有 `nodes[]`，也沒有 `next` 指標。** 那套是為分支敘事設計的，而〈阿杰的遺願〉
+沒有分支：一個入口、一段長回應、完成，三站都一樣。用節點圖表達一條直線，
+等於維護一堆永遠只有一個出口的指標，而每個 `next` 都是一次可以指錯的機會。
+這是本專案第三次拿掉過度複雜的內容結構（materials 的 items→facts、
+prompts 的 12 題→3 題），判準都一樣：**這個欄位玩家看得到嗎？不做會怎樣？**
+
+**★★★ `afterStory` 是「劇情不劇透」的機制。** 這一站劇情走完之後，那段文字才會被
+追加進 system prompt 的人格段。劇情中玩家可以自由發問（走 `speak()` 的
+`origin: 'story-node'`），而剝皮寮的反轉是靠 `soul.yaml` 刻意留白撐住的。
+如果靠「叮嚀模型不要提前講」，那是一條寫在 prompt 裡、可以被繞過的規則；
+改成走完之前根本不給它那段記憶——**不是要求它不說，是它不知道**。
+（同一個道理：`radiusM` 不進 API 回應、`persona` 不進 `toPublicSoul`。）
+
+**建置期檢查**：`content:check` 的 #11（`hasStory` 與 `story.yaml` 必須一致，
+兩個方向都擋）、#11b（可遊玩的劇情站必須恰有一張劇情卡）、#12（`storyOrder`
+必須從 1 連續，缺號的話後面那一站永遠解鎖不了）、#13（道具 id 全站唯一）。
+
+**呈現方式**：劇情回應**不塞進對話氣泡**——三站的回應是 300／500／600 字，
+而對話面板在手機上看得到 6–8 行。對話框裡出現的是一張回憶卡，點開才是全螢幕
+閱讀視窗，**關閉視窗才算該站完成**（沒讀完就發卡，那張卡沒有重量）。
+同一個閱讀器四處共用：阿杰的信、三段回憶、任務欄位內容、劇情卡卡背。
+
+**劇情台詞是預寫的，不經 AI**——它們是逐字審過的成品。內容稿與驗收基準在
+`萬華劇情_阿杰的遺願_v0.1.md`。
 
 ---
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 建置期內容驗證 —— SDD §2.4 的十項 ＋ #3b／#7b，外加隱私與範本金鑰掃描。
+ * 建置期內容驗證 —— SDD §2.4 的十項 ＋ #3b／#7b／#11–#13，外加隱私與範本金鑰掃描。
  *
  * 在 CI 與 prebuild 執行，★ 驗不過就不給部署 ★。
  *
@@ -19,6 +19,7 @@ import {
 	MaterialSchema,
 	GuidedPromptSchema,
 	FallbackSchema,
+	StorySchema,
 	CardsFileSchema,
 	GuardrailsSchema,
 	FORBIDDEN_PERSONA_PHRASES
@@ -79,6 +80,8 @@ type SiteBundle = {
 	materials: z.infer<typeof MaterialSchema> | null;
 	prompts: z.infer<typeof GuidedPromptSchema> | null;
 	fallbacks: z.infer<typeof FallbackSchema> | null;
+	/** 只有 hasStory 的站才有（P3）。沒有劇情的站這裡永遠是 null */
+	story: z.infer<typeof StorySchema> | null;
 };
 
 /**
@@ -101,7 +104,8 @@ for (const dir of siteDirs) {
 		soul: null,
 		materials: null,
 		prompts: null,
-		fallbacks: null
+		fallbacks: null,
+		story: null
 	};
 
 	const read = <T extends z.ZodType>(file: string, schema: T) =>
@@ -132,6 +136,9 @@ for (const dir of siteDirs) {
 	b.materials = read('materials.yaml', MaterialSchema);
 	b.prompts = read('prompts.yaml', GuidedPromptSchema);
 	b.fallbacks = read('fallbacks.yaml', FallbackSchema);
+	// story.yaml 不在 PLAYABLE_FILES 裡——劇情是 P3 的額外內容，
+	// 一個站可以是 playable 而沒有劇情（六站裡有三站就是這樣）。
+	b.story = read('story.yaml', StorySchema);
 
 	// 目錄名要跟 site.id 一致，否則載入器會找錯檔
 	if (b.site && b.site.id !== dir) {
@@ -441,6 +448,136 @@ for (const b of bundles) {
 	}
 }
 
+// ─── 檢查 #11：hasStory 與 story.yaml 必須一致 ───────────────
+//
+// ★ 兩個方向都要擋，而且兩個方向的後果不一樣：
+//
+//   標了 hasStory 卻沒有 story.yaml → 玩家看得到任務、進得去，然後沒有內容。
+//   有 story.yaml 卻沒標 hasStory   → **內容躺在資料夾裡，永遠不會被玩家看到，
+//                                      而且沒有任何錯誤訊息。** 這種錯最難發現，
+//                                      因為畫面完全正常。
+//
+//   跟 toPublicSite 的白名單同一類：「錯了畫面完全正常、沒有人會發現」的錯，
+//   只能靠機械化擋。
+
+const STORY_ENTRY_MAX = 20;
+
+for (const b of bundles) {
+	if (!b.site) continue;
+	const hasFile = existsSync(join(SITES_DIR, b.dir, 'story.yaml'));
+
+	if (b.site.hasStory && !hasFile) {
+		fail(
+			'#11 劇情',
+			`${b.dir} 標了 hasStory 但沒有 story.yaml —— 玩家會看到任務欄位，點進去沒有內容`
+		);
+	} else if (!b.site.hasStory && hasFile) {
+		fail(
+			'#11 劇情',
+			`${b.dir} 有 story.yaml 但 site.yaml 沒標 hasStory —— ` +
+				`那份內容永遠不會被玩家看到，而且不會有任何錯誤`
+		);
+	}
+
+	if (!b.story) continue;
+
+	// siteId 對不上的話，載入器會把 A 站的劇情裝到 B 站身上
+	if (b.story.siteId !== b.dir) {
+		fail('#11 劇情', `${b.dir}/story.yaml 的 siteId 是 "${b.story.siteId}"，與目錄名不符`);
+	}
+
+	// 同 #5 的 15 字提醒：它也是可點擊的按鈕，只是獨立一列，可以寬一點。
+	const len = [...b.story.entry.text.zhHant].length;
+	if (len > STORY_ENTRY_MAX) {
+		warn(
+			'#11 劇情',
+			`${b.dir}/story.yaml 的 entry 有 ${len} 字 —— 它是按鈕，建議 ${STORY_ENTRY_MAX} 字內`
+		);
+	}
+}
+
+// ─── 檢查 #11b：playable ＋ hasStory 的站必須恰有一張劇情卡 ───
+//
+// 跟 #7b（相遇卡）完全同型，理由也一樣：發卡時是**查** cards.yaml 拿 id，
+// 查不到就發不出卡。差別只在觸發條件——劇情卡在 story_stage 轉 done 時發，
+// 所以只有「可遊玩**而且**有劇情」的站需要它。
+//
+// ⚠️ 草稿站沒有卡片是正常狀態；playable 但沒有劇情的站也不該有劇情卡。
+
+const storyPlayable = bundles.filter((b) => b.site?.status === 'playable' && b.site.hasStory);
+
+if (storyPlayable.length === 0) {
+	notes.push(
+		`#11b 劇情卡檢查【尚未啟用】：目前沒有「可遊玩且有劇情」的站。一旦有，` +
+			`就會開始強制「該站必須恰有一張 kind: story 的卡」。`
+	);
+}
+
+for (const b of storyPlayable) {
+	const mine = (cards?.cards ?? []).filter((c) => c.kind === 'story' && c.siteId === b.dir);
+	if (mine.length === 0) {
+		fail(
+			'#11b 劇情卡',
+			`${b.dir} 是可遊玩的劇情站，但 cards.yaml 裡沒有它的劇情卡 —— ` +
+				`玩家走完劇情會拿不到卡。要嘛補一張 kind: story 的卡，要嘛先留 status: draft`
+		);
+	} else if (mine.length > 1) {
+		fail(
+			'#11b 劇情卡',
+			`${b.dir} 有 ${mine.length} 張劇情卡（${mine.map((c) => c.id).join('、')}）—— ` +
+				`發卡時該挑哪一張沒有定義。一站只能有一張`
+		);
+	}
+}
+
+// ─── 檢查 #12：storyOrder 必須從 1 開始且連續 ─────────────────
+//
+// ⚠️ 跟 #10 分工：#10 管「標了 hasStory 就要有 storyOrder，而且不重複」，
+//    #12 管「這些順序合起來是不是一條完整的線」。
+//
+// ★ 為什麼要分開檢查連續性：storyOrder 1、2、4 三站都合法也都不重複，
+//   但第三站的前置條件是「storyOrder 3 的站要 done」——那一站不存在，
+//   於是它**永遠解鎖不了**。而這件事在任何畫面上都看不出來，
+//   玩家只會覺得第三個任務沒出現。
+
+const storyOrders: { dir: string; order: number }[] = [];
+for (const b of bundles) {
+	// ⚠️ 不用 .filter().map()：filter 之後的 map 是另一個閉包，
+	// TS 的縮小推論不穿過去，在那裡 b.site 又變回「可能是 null」，
+	// 只能靠 ! 硬斷言。寫成迴圈，縮小推論在同一個區塊內就成立。
+	if (b.site?.hasStory && b.site.storyOrder !== null) {
+		storyOrders.push({ dir: b.dir, order: b.site.storyOrder });
+	}
+}
+storyOrders.sort((a, b) => a.order - b.order);
+
+storyOrders.forEach((s, i) => {
+	if (s.order !== i + 1) {
+		fail(
+			'#12 劇情順序',
+			`劇情線的順序不連續：排到第 ${i + 1} 個卻是 storyOrder=${s.order}（${s.dir}）—— ` +
+				`前置條件是「前一順位 done」，中間缺號的話後面那一站永遠解鎖不了`
+		);
+	}
+});
+
+// ─── 檢查 #13：劇情道具的 id 全站唯一 ─────────────────────────
+//
+// 道具會跨任務傳遞（信在任務 1 的欄位、畫在任務 2 的欄位），
+// id 撞號的話前端分不出哪一個是哪一個，而且玩家的道具欄會出現兩個同名的東西。
+
+const itemIds = new Map<string, string>();
+for (const b of bundles) {
+	const item = b.story?.item;
+	if (!item) continue;
+	const seen = itemIds.get(item.id);
+	if (seen) {
+		fail('#13 劇情道具', `道具 id "${item.id}" 重複：${seen} 與 ${b.dir}`);
+	} else {
+		itemIds.set(item.id, b.dir);
+	}
+}
+
 // ─── 額外：隱私 schema 硬約束（SDD §3.3）─────────────────────
 // 資料庫 schema 裡不得出現任何位置欄位。
 // 這不是慣例，是企劃書 §7、§8.8 的硬約束。
@@ -540,6 +677,9 @@ if (draftDirs.length > 0) {
 	console.log(`\u3000🚧 草稿（進不去）：${draftDirs.join(', ')}`);
 }
 console.log(`成就卡：${cards?.cards.length ?? 0} 張`);
+console.log(
+	`劇情線：${storyOrders.length ? storyOrders.map((s) => `${s.order}. ${s.dir}`).join(' → ') : '（無）'}`
+);
 console.log(`全域護欄：${guardrails ? `${guardrails.rules.length} 條` : '❌ 缺少'}`);
 console.log('');
 
@@ -563,6 +703,12 @@ for (const b of bundles) {
 	}
 	if (!(cards?.cards ?? []).some((c) => c.kind === 'encounter' && c.siteId === b.dir)) {
 		blockers.push(`cards.yaml 裡沒有 ${b.dir} 的相遇卡（#7b）`);
+	}
+	if (
+		b.site?.hasStory &&
+		!(cards?.cards ?? []).some((c) => c.kind === 'story' && c.siteId === b.dir)
+	) {
+		blockers.push(`cards.yaml 裡沒有 ${b.dir} 的劇情卡（#11b）`);
 	}
 
 	if (blockers.length > 0) {
