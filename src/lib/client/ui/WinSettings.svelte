@@ -6,9 +6,11 @@
 	 * 特有的兩個是展示模式與隱私說明。
 	 */
 	import { session } from '$lib/client/mock/session.svelte';
+	import { MUSIC_CREDITS, MUSIC_SOURCE } from './credits';
 
 	let phrase = $state('');
 	let showPrivacy = $state(false);
+	let showCredits = $state(false);
 
 	/**
 	 * ★★★ 切片 7：密語不再由前端比對。★★★
@@ -77,7 +79,34 @@
 		/>
 		<span class="volnum ut-txt">{session.musicVolume}</span>
 	</div>
-	<p class="note">音檔還沒放進來，這裡目前只是把開關與音量記住。</p>
+	<!--
+		★ 音樂出處標在玩家看得到的地方。
+		  DOVA-SYNDROME 的規約說標示「非必須但請盡量記載」，而 Cat life 的作者
+		  GT-K 另外請求標示帳號——依規約，**作者的條件優先**。
+		  NOTICES 那份是給看原始碼的人看的，玩家不會去讀 GitHub。
+	-->
+	<!--
+		⚠️ 網址寫成字面值，不是從 MUSIC_SOURCE 取出來的變數。
+		   `svelte/no-navigation-without-resolve` 對動態 href 一律報錯——它沒辦法
+		   靜態判斷那是站外連結，而 CI 跑 `--max-warnings 0`。
+		   寫死之後規則看得出這是外部 URL，就放行了。
+		★ 一個固定的外部連結本來也不需要抽成常數，抽了反而多一份會漂移的東西。
+	-->
+	<p class="note">
+		音樂：<a href="https://dova-s.jp/" target="_blank" rel="noopener noreferrer">
+			{MUSIC_SOURCE.name}
+		</a>
+	</p>
+	<button class="act ut-px-frame" onclick={() => (showCredits = !showCredits)}>
+		<span class="ut-txt">{showCredits ? '收起曲目' : '曲目與作者'}</span>
+	</button>
+	{#if showCredits}
+		<ul class="credits">
+			{#each MUSIC_CREDITS as c (c.title)}
+				<li><b>{c.title}</b>／{c.artist}<span class="where">{c.where}</span></li>
+			{/each}
+		</ul>
+	{/if}
 </section>
 
 <section>
@@ -109,6 +138,31 @@
 <p class="ver">城市物語 Urban Tales&#12288;介面展示版</p>
 
 <style>
+	.credits {
+		margin: 8px 0 0;
+		padding: 0;
+		list-style: none;
+		font-size: 10px;
+		line-height: 1.9;
+		color: var(--ut-ink-3);
+	}
+	.credits li {
+		display: flex;
+		gap: 4px;
+		align-items: baseline;
+		flex-wrap: wrap;
+	}
+	.credits b {
+		font-weight: 500;
+		color: var(--ut-ink-2);
+	}
+	.credits .where {
+		margin-left: auto;
+		opacity: 0.7;
+	}
+	.note a {
+		color: inherit;
+	}
 	section {
 		margin-bottom: 20px;
 	}

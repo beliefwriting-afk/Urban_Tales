@@ -21,6 +21,7 @@
 	import SoulLayer from '$lib/client/ui/SoulLayer.svelte';
 	import Toast from '$lib/client/ui/Toast.svelte';
 	import TopBar from '$lib/client/ui/TopBar.svelte';
+	import { music, trackFor } from '$lib/client/ui/music.svelte';
 
 	/**
 	 * ★ 切片 7：啟動時跟伺服器要景點、身分、圖鑑。
@@ -34,6 +35,37 @@
 	 */
 	onMount(() => {
 		void session.load();
+
+		/**
+		 * ★ 瀏覽器不准網頁在使用者動手之前出聲。
+		 *
+		 *   所以音樂不是「載入就播」，是「玩家第一次碰畫面才播」。
+		 *   用 `once: true` 是因為解鎖只需要一次；掛在 window 上是因為
+		 *   第一個動作可能發生在任何地方（拖地圖、開選單、按呼喚）。
+		 *
+		 *   ⚠️ 不要改成只掛在某顆按鈕上——那會變成「玩家不按那顆就永遠沒有音樂」。
+		 */
+		const unlock = () => music.unlock();
+		window.addEventListener('pointerdown', unlock, { once: true });
+		window.addEventListener('keydown', unlock, { once: true });
+
+		return () => {
+			window.removeEventListener('pointerdown', unlock);
+			window.removeEventListener('keydown', unlock);
+		};
+	});
+
+	/**
+	 * 音樂跟著畫面走：地圖層放預設曲，進了某一站換成那一站的。
+	 *
+	 * ★ 用 $effect 而不是在 enterSite() 裡呼叫播放器：狀態變化的來源有好幾個
+	 *   （進站、離開、切相機、開關音樂、拉音量），一個個去記得呼叫遲早會漏。
+	 *   讓它跟著狀態自己走，就不會有「某條路徑忘了換歌」這種 bug。
+	 */
+	$effect(() => {
+		music.setEnabled(session.musicOn);
+		music.setVolume(session.musicVolume);
+		music.play(trackFor(session.mode === 'map' ? null : session.activeSiteId));
 	});
 </script>
 
