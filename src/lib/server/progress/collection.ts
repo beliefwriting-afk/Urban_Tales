@@ -5,15 +5,16 @@
  *
  * ★★★ 這個檔案守的界線：**未獲得的卡不能洩漏卡面內容。** ★★★
  *
- *   SDD §8.2：未獲得顯示「像素剪影 ＋ 該站名稱」——讓玩家知道「還有東西可以拿」
- *   以及「在哪裡拿」，但**不知道那張卡長什麼樣、卡背寫了什麼**。
+ *   未獲得只給 kind ＋ 該站名稱——讓玩家知道「還有東西可以拿」以及「在哪裡拿」，
+ *   但**不知道那張卡長什麼樣、卡背寫了什麼**。連圖都不給：卡面圖是一張成品圖，
+ *   送出去就等於劇透（前端也拍板空格不畫剪影，見 WinCards.svelte）。
  *   那句卡背文字是拿到卡的那一刻才該讀到的東西；提前送出去，收集就沒有重量了。
  *
  *   ⚠️ 這跟 `toPublicSite` 的 radiusM、`toPublicSoul` 的 persona 是同一類錯：
  *      多回幾個欄位，畫面完全正常、沒有人會發現。
  *
  *   ★ 但這裡用的手法更強一層：**discriminated union**。
- *      未獲得的那一支型別裡**根本沒有 title / flavor / portrait 這幾個欄位**，
+ *      未獲得的那一支型別裡**根本沒有 title / flavor / art 這幾個欄位**，
  *      所以「不小心把卡面帶出去」不是靠白名單擋，是 TypeScript 直接編不過。
  *      白名單擋得住「忘了刪」，型別擋得住「根本寫不出來」。
  *
@@ -31,7 +32,7 @@ export type CollectionEntry =
 			siteName: string;
 			title: string;
 			flavor: string;
-			art: { portrait: string; frame: string };
+			art: string;
 			earnedAt: string;
 	  }
 	| {
@@ -39,12 +40,8 @@ export type CollectionEntry =
 			id: string;
 			kind: CardKind;
 			siteId: string;
+			/** ★ 到 siteName 為止。沒有 art——卡面圖就是卡面本身，給了就是劇透。 */
 			siteName: string;
-			/**
-			 * ★ 未獲得的卡只給卡框，不給立繪。
-			 *   卡框是通用素材（每一種 kind 一張），立繪就是卡面本身。
-			 */
-			frame: string;
 	  };
 
 export type CollectionResult = {
@@ -83,8 +80,7 @@ export function buildCollection(
 				id: c.id,
 				kind: c.kind,
 				siteId: c.siteId,
-				siteName,
-				frame: c.art.frame
+				siteName
 			};
 		}
 
@@ -96,7 +92,7 @@ export function buildCollection(
 			siteName,
 			title: c.title.zhHant,
 			flavor: c.flavor.zhHant,
-			art: { portrait: c.art.portrait, frame: c.art.frame },
+			art: c.art,
 			earnedAt: earned.toISOString()
 		};
 	});

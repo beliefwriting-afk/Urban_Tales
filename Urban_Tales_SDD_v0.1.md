@@ -399,10 +399,8 @@ export const CardSchema = z.object({
   title: LocalizedText,
   /** 卡背文字：這張卡想讓玩家記住的那句話 */
   flavor: LocalizedText,
-  art: z.object({
-    portrait: z.string(),   // 立繪（非像素）
-    frame:    z.string(),   // 像素卡框
-  }),
+  // 卡面圖：一卡一圖（非像素）。三種 kind 靠圖像內容區分，沒有卡框素材。
+  art: z.string(),
 });
 ```
 
@@ -1172,9 +1170,9 @@ async function awardCard(playerId: string, cardId: string): Promise<AwardResult>
 
 ### 8.2 圖鑑
 
-`GET /api/collection` → 15 張卡的狀態（已獲得 → 完整卡面；未獲得 → 像素剪影 ＋ 該站名稱）。
+`GET /api/collection` → 15 張卡的狀態（已獲得 → 完整卡面；未獲得 → 只有 kind ＋ 該站名稱）。
 
-**顯示未獲得卡的剪影而不是空格**：讓玩家知道「還有東西可以拿」以及「在哪裡拿」。這是企劃書 §5.6「圖鑑有規模感」的實作。
+**未獲得的格子有位置、有站名，但不畫圖**：位置本身就給得出「還有東西可以拿」以及「在哪裡拿」——這是企劃書 §5.6「圖鑑有規模感」的實作。不畫圖是因為卡面圖是一張成品圖（不是可以打碼的剪影），送出去就等於劇透。
 
 **不使用玩家照片**（企劃書 §5.6）——`player_cards` 表沒有任何圖片欄位，架構上不可能。
 

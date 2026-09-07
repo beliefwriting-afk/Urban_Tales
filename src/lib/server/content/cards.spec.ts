@@ -18,7 +18,7 @@ const CARD: Card = {
 	siteId: 'test-site',
 	title: { zhHant: '第一次見面', en: null, ja: null },
 	flavor: { zhHant: '它記得比你久', en: null, ja: null },
-	art: { portrait: '/art/test/portrait.png', frame: '/art/frames/encounter.png' }
+	art: '/art/test/encounter.png'
 };
 
 describe('toPublicCard', () => {
@@ -29,7 +29,7 @@ describe('toPublicCard', () => {
 			siteId: 'test-site',
 			title: '第一次見面',
 			flavor: '它記得比你久',
-			art: { portrait: '/art/test/portrait.png', frame: '/art/frames/encounter.png' }
+			art: '/art/test/encounter.png'
 		});
 	});
 });

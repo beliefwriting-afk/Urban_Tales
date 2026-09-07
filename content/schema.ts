@@ -417,10 +417,17 @@ export const CardSchema = z.object({
 	title: LocalizedText,
 	/** 卡背文字：這張卡想讓玩家記住的那句話 */
 	flavor: LocalizedText,
-	art: z.object({
-		portrait: z.string(), // 立繪（非像素）
-		frame: z.string() // 像素卡框
-	})
+	/**
+	 * 卡面圖：一張卡一張圖，路徑直接放在這裡。
+	 *
+	 * ★ 三種 kind（相遇／任務／劇情）靠**圖像內容本身**區分，沒有卡框素材。
+	 *   所以這裡不是「立繪＋框」兩層，是單一一張成品圖。
+	 *
+	 * ⚠️ 這張圖跟 soul.yaml 的 `art.portrait` **不是同一張**。
+	 *   靈魂立繪是對話畫面用的；卡面圖是這張卡自己的。同一站的三張卡
+	 *   要三張不同的圖，否則玩家分不出手上是哪一種。
+	 */
+	art: z.string()
 });
 export type Card = z.infer<typeof CardSchema>;
 

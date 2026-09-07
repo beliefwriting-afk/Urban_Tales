@@ -438,8 +438,7 @@ for (const b of bundles) {
 	if (r?.kind === 'live2d') checkAsset(r.modelPath, `${b.dir}/soul.yaml renderer.modelPath`);
 }
 for (const c of cards?.cards ?? []) {
-	checkAsset(c.art.portrait, `cards.yaml "${c.id}" art.portrait`);
-	checkAsset(c.art.frame, `cards.yaml "${c.id}" art.frame`);
+	checkAsset(c.art, `cards.yaml "${c.id}" art`);
 }
 
 // ─── 檢查 #9：persona 不得出現「神明說」類字串 ────────────────

@@ -96,9 +96,9 @@ export type CollectionCard =
 			siteName: string;
 			title: string;
 			flavor: string;
-			art: { portrait: string; frame: string };
+			art: string;
 			earnedAt: string;
 	  }
-	| { owned: false; id: string; kind: string; siteId: string; siteName: string; frame: string };
+	| { owned: false; id: string; kind: string; siteId: string; siteName: string };
 
 export type CollectionResponse = { owned: number; total: number; cards: CollectionCard[] };

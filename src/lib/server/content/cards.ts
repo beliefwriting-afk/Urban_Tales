@@ -29,7 +29,7 @@ export type PublicCard = {
 	siteId: string;
 	title: string;
 	flavor: string;
-	art: { portrait: string; frame: string };
+	art: string;
 };
 
 // ─── 建置期載入 ──────────────────────────────────────────────
@@ -100,7 +100,7 @@ export function toPublicCard(card: Card): PublicCard {
 		siteId: card.siteId,
 		title: card.title.zhHant,
 		flavor: card.flavor.zhHant,
-		art: { portrait: card.art.portrait, frame: card.art.frame }
+		art: card.art
 	};
 }
 

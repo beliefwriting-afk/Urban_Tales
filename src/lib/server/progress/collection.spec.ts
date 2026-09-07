@@ -21,7 +21,8 @@ function card(id: string, kind: Card['kind'], siteId: string): Card {
 		title: loc(`${id} 的標題`),
 		// ★ 用可辨識的哨兵字串，才驗得出「未獲得時它有沒有漏出去」
 		flavor: loc(`FLAVOR-SENTINEL-${id}`),
-		art: { portrait: `/art/${siteId}/portrait.png`, frame: '/art/frames/encounter.png' }
+		// ★ 卡面圖也用哨兵：它跟 flavor 一樣是「未獲得就不能出現」的東西
+		art: `/art/${siteId}/ART-SENTINEL-${id}.png`
 	};
 }
 
@@ -48,7 +49,7 @@ describe('已獲得的卡', () => {
 		if (got?.owned) {
 			expect(got.title).toBe('task-longshan 的標題');
 			expect(got.flavor).toBe('FLAVOR-SENTINEL-task-longshan');
-			expect(got.art.portrait).toBe('/art/longshan-temple/portrait.png');
+			expect(got.art).toBe('/art/longshan-temple/ART-SENTINEL-task-longshan.png');
 			expect(got.earnedAt).toBe(EARNED.toISOString());
 		}
 	});
@@ -68,7 +69,7 @@ describe('★ 未獲得的卡不洩漏卡面', () => {
 		const blob = JSON.stringify(entries);
 		expect(blob).not.toContain('FLAVOR-SENTINEL');
 		expect(blob).not.toContain('的標題');
-		expect(blob).not.toContain('portrait.png');
+		expect(blob).not.toContain('ART-SENTINEL');
 	});
 
 	it('但仍然給得出「還有東西可以拿」與「在哪裡拿」', () => {
@@ -77,7 +78,6 @@ describe('★ 未獲得的卡不洩漏卡面', () => {
 		if (!e.owned) {
 			expect(e.siteName).toBe('艋舺龍山寺');
 			expect(e.kind).toBe('encounter');
-			expect(e.frame).toBe('/art/frames/encounter.png');
 		}
 	});
 });

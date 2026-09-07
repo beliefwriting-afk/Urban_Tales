@@ -1,7 +1,8 @@
 # 成就卡定義 —— 企劃書 §5.6，共 15 張：相遇 6 ＋ 任務 6 ＋ 劇情 3
 #
-# 卡面 = 立繪角色（非像素）＋ 像素卡框。這是核心設計第 12 條
-# 「材質落差是設計」在卡片上的落點。
+# 卡面 = 一張成品圖（非像素立繪）。三種 kind 靠**圖像內容本身**區分，
+# 沒有卡框素材——所以同一站的三張卡是三張不同的圖，不是同一張圖換框。
+# 圖本身非像素，這是核心設計第 12 條「材質落差是設計」在卡片上的落點。
 #
 # ★ 現在是空的，因為六站都還是 draft、立繪也還沒有。
 #
@@ -24,6 +25,4 @@ cards: []
 #       zhHant: 一句話
 #       en: null
 #       ja: null
-#     art:
-#       portrait: /art/longshan-temple/portrait.png
-#       frame: /art/frames/encounter.png
+#     art: /art/longshan-temple/encounter.png   # 這張卡自己的圖，不是 soul.yaml 的立繪
