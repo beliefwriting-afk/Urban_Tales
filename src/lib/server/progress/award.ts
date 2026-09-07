@@ -69,3 +69,33 @@ export async function markFirstMet(playerId: string, siteId: string): Promise<bo
 
 	return rows.length > 0;
 }
+
+/**
+ * 記下「這個玩家在這一站完成了拍照任務」。回 true 表示這一次才是第一次。
+ *
+ * ★ 形狀與 markFirstMet 一模一樣，理由也一樣：`player_site_state` 這一列
+ *   可能早就因為相遇而存在，單純 `onConflictDoNothing` 會把「列已存在」
+ *   誤判成「任務早就做過了」，玩家就永遠拿不到任務卡。
+ *   `setWhere` 讓「有沒有回傳」等於「這次是不是第一次」。
+ *
+ * ★★★ 判定時機是**按下快門**，不是存檔成功（SDD §7.3）。★★★
+ *   企劃書 §5.4「拍了就過，無審核」——玩家有沒有把照片存進相簿是他自己的事，
+ *   不該影響進度。而且網頁根本拿不到可靠的「已存檔」訊號
+ *   （`navigator.share()` resolve 不代表他真的存了）。
+ *
+ * ⚠️ 這一支不收也不存任何照片。`player_site_state` 沒有圖片欄位，
+ *   `player_cards` 也沒有——「不使用玩家的照片」（企劃書 §5.6）在 schema 層就成立。
+ */
+export async function markPhotoTask(playerId: string, siteId: string): Promise<boolean> {
+	const rows = await db
+		.insert(playerSiteState)
+		.values({ playerId, siteId, photoTaskAt: sql`now()` })
+		.onConflictDoUpdate({
+			target: [playerSiteState.playerId, playerSiteState.siteId],
+			set: { photoTaskAt: sql`now()` },
+			setWhere: sql`${playerSiteState.photoTaskAt} is null`
+		})
+		.returning({ photoTaskAt: playerSiteState.photoTaskAt });
+
+	return rows.length > 0;
+}

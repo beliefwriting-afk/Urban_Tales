@@ -463,6 +463,66 @@ async function main() {
 		.some((t) => /persona|identity|voice|taboo/i.test(t));
 	check('★ 回應裡沒有人格卡的痕跡', !chatLeaked);
 
+	// ══ 拍照任務與圖鑑（切片 6）══════════════════════════════════
+	console.log('\n── 拍照任務 ──');
+
+	const photoTask = (id: string, extra: Record<string, string> = {}) =>
+		fetch(`${BASE}/api/site/${encodeURIComponent(id)}/photo-task`, {
+			method: 'POST',
+			headers: { ...auth, ...extra }
+		});
+
+	// ⚠️ 同 enter 與 chat：六站都是草稿，成功路徑測不到（那要等第一站 playable）。
+	const draftPhoto = await photoTask('longshan-temple', {
+		[PRESENCE_HEADER]: String(insideBody.token ?? '')
+	});
+	const draftPhotoBody = await draftPhoto.json();
+	check(
+		'★ 草稿站：憑證有效也拍不了',
+		draftPhoto.status === 403 && draftPhotoBody.code === 'site_not_playable',
+		`HTTP ${draftPhoto.status}，code=${draftPhotoBody.code}`
+	);
+
+	const ghostPhoto = await photoTask('沒有這一站');
+	const ghostPhotoBody = await ghostPhoto.json();
+	check(
+		'不存在的景點 → 404',
+		ghostPhoto.status === 404 && ghostPhotoBody.code === 'unknown_site',
+		`HTTP ${ghostPhoto.status}，code=${ghostPhotoBody.code}`
+	);
+
+	// ★★★ 圖鑑是切片 6 唯一測得到成功路徑的一支 ★★★
+	//   它不需要在場憑證（看自己的圖鑑不必人在現場），也不需要 playable 的站。
+	console.log('\n── 圖鑑 ──');
+
+	const collection = await fetch(`${BASE}/api/collection`, { headers: auth });
+	const collectionBody = await collection.json();
+	check(
+		'★ 拿得到圖鑑（本切片唯一的端到端成功路徑）',
+		collection.status === 200 && Array.isArray(collectionBody.cards),
+		`HTTP ${collection.status}，body=${JSON.stringify(collectionBody).slice(0, 120)}`
+	);
+	check(
+		'圖鑑有 owned / total 摘要',
+		typeof collectionBody.owned === 'number' && typeof collectionBody.total === 'number',
+		`owned=${collectionBody.owned}，total=${collectionBody.total}`
+	);
+	// ⚠️ cards.yaml 現在是空的（等 P0-1 的立繪），所以 total 應該是 0。
+	//   立繪做完、卡片寫進去之後，這一條會自然變成「total 15」——**到時候要回來改**。
+	check(
+		'目前卡片總數是 0（cards.yaml 還是空的，等立繪）',
+		collectionBody.total === 0,
+		`total=${collectionBody.total} —— 卡片寫進 cards.yaml 了？那就把這條改成 15`
+	);
+	// ★ 未獲得的卡不該帶卡背文字。現在沒有卡，這條驗的是「將來不會漏」的形狀——
+	//   有卡之後它才真的有牙齒，但先放著，免得那天沒有人記得加。
+	const collectionBlob = JSON.stringify(collectionBody);
+	check(
+		'★ 圖鑑回應裡沒有未獲得卡的卡背文字',
+		!/"flavor"\s*:/.test(collectionBlob) || collectionBody.owned > 0,
+		'未獲得的卡不該有 flavor 欄位（見 progress/collection.ts）'
+	);
+
 	console.log('');
 
 	// ── 6. 資料庫實際狀況 ───────────────────────────────────────

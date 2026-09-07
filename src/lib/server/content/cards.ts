@@ -77,6 +77,22 @@ export function getEncounterCard(siteId: string): Card | null {
 	return null;
 }
 
+/**
+ * 某一站的任務卡（拍照任務完成時發）。
+ *
+ * ★ 與 getEncounterCard 完全同型，**刻意不抽成 `getCardOf(kind, siteId)`**。
+ *   抽掉之後 kind 會變成一個參數，而「這一站的相遇卡」與「這一站的任務卡」
+ *   是兩條各自有規則的線（#7b 與 #7c 分別檢查），共用一支函式會讓
+ *   「某天有人多傳一個 kind 進去」變成一個沒有人審過的新路徑。
+ *   兩支各三行，重複的成本遠低於那個風險。
+ */
+export function getTaskCard(siteId: string): Card | null {
+	for (const c of CARDS.values()) {
+		if (c.kind === 'task' && c.siteId === siteId) return c;
+	}
+	return null;
+}
+
 export function toPublicCard(card: Card): PublicCard {
 	return {
 		id: card.id,

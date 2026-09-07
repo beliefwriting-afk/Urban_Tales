@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 建置期內容驗證 —— SDD §2.4 的十項 ＋ #3b／#7b／#11–#14，外加隱私與範本金鑰掃描。
+ * 建置期內容驗證 —— SDD §2.4 的十項 ＋ #3b／#7b／#7c／#11–#14，外加隱私與範本金鑰掃描。
  *
  * 在 CI 與 prebuild 執行，★ 驗不過就不給部署 ★。
  *
@@ -359,8 +359,8 @@ if (playableDirs.length === 0) {
 	//   「這條規則現在沒有在檢查」與「這條規則檢查過了」必須看得出差別，
 	//   否則下次有人看到一片綠，會以為相遇卡已經被驗過了。
 	notes.push(
-		`#7b 相遇卡檢查【尚未啟用】：目前沒有 playable 的站。一旦有站宣告 playable，` +
-			`就會開始強制「該站必須恰有一張 kind: encounter 的卡」。`
+		`#7b／#7c 卡片檢查【尚未啟用】：目前沒有 playable 的站。一旦有站宣告 playable，` +
+			`就會開始強制「該站必須恰有一張相遇卡與一張任務卡」。`
 	);
 }
 
@@ -379,6 +379,38 @@ for (const b of bundles) {
 		fail(
 			'#7b 相遇卡',
 			`${b.dir} 有 ${mine.length} 張相遇卡（${mine.map((c) => c.id).join('、')}）—— ` +
+				`發卡時該挑哪一張沒有定義。一站只能有一張`
+		);
+	}
+}
+
+// ─── 檢查 #7c：playable 的站必須恰有一張任務卡 ────────────────
+//
+// ★ 與 #7b（相遇卡）完全同型，理由也一樣：`/api/site/:id/photo-task` 發卡時是
+//   **查** cards.yaml 拿 id，查不到就發不出卡。沒有這條檢查的話，一站轉 playable
+//   而忘了寫任務卡，玩家會走到現場、拍完照、然後在回報時收到 500。
+//   那個 500 應該在建置時就發生。
+//
+// ⚠️ 為什麼不把 #7b 與 #7c 合成一條「每一種 kind 都要恰有一張」：
+//   相遇卡與任務卡的**觸發條件不同**（進入 L2／回報快門），將來也可能分歧
+//   （例如某一站不做拍照任務）。合成一條之後，要為其中一種開例外就得
+//   在共用的規則裡加參數——那正是規則開始鬆掉的形狀。
+
+for (const b of bundles) {
+	if (b.site?.status !== 'playable') continue;
+
+	const mine = (cards?.cards ?? []).filter((c) => c.kind === 'task' && c.siteId === b.dir);
+
+	if (mine.length === 0) {
+		fail(
+			'#7c 任務卡',
+			`${b.dir} 宣告 playable 但 cards.yaml 裡沒有它的任務卡 —— ` +
+				`玩家拍完照回報時會拿到 500。要嘛補一張 kind: task 的卡，要嘛先留 status: draft`
+		);
+	} else if (mine.length > 1) {
+		fail(
+			'#7c 任務卡',
+			`${b.dir} 有 ${mine.length} 張任務卡（${mine.map((c) => c.id).join('、')}）—— ` +
 				`發卡時該挑哪一張沒有定義。一站只能有一張`
 		);
 	}
@@ -762,6 +794,9 @@ for (const b of bundles) {
 	}
 	if (!(cards?.cards ?? []).some((c) => c.kind === 'encounter' && c.siteId === b.dir)) {
 		blockers.push(`cards.yaml 裡沒有 ${b.dir} 的相遇卡（#7b）`);
+	}
+	if (!(cards?.cards ?? []).some((c) => c.kind === 'task' && c.siteId === b.dir)) {
+		blockers.push(`cards.yaml 裡沒有 ${b.dir} 的任務卡（#7c）`);
 	}
 	if (
 		b.site?.hasStory &&
