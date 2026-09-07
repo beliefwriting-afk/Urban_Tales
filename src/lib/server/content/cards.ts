@@ -104,7 +104,7 @@ export function toPublicCard(card: Card): PublicCard {
 	};
 }
 
-/** 全部卡片定義。圖鑑（切片 6）要用它畫未獲得卡的剪影 */
+/** 全部卡片定義。圖鑑用它排出格子——未獲得的格子只給位置與站名，不給卡面 */
 export function listCards(): Card[] {
 	return [...CARDS.values()];
 }

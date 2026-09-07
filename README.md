@@ -113,7 +113,7 @@ src/lib/server/     伺服器端。★ SvelteKit 禁止前端 import 這個目�
   db/schema.ts        資料表。★ 不存在任何經緯度欄位
 src/lib/client/
   soul/renderer.ts    SoulRenderer 抽象層（Live2D vs 分層 PNG 可抽換）
-static/art/         立繪、圖層、像素卡框
+static/art/         靈魂立繪、圖層、成就卡卡面（一卡一圖）
 ```
 
 ---
