@@ -391,6 +391,78 @@ async function main() {
 		.some((t) => /persona|identity|voice|taboo/i.test(t));
 	check('★ 回應裡沒有人格卡的痕跡', !leaked);
 
+	// ══ 對話（切片 5）══════════════════════════════════════════
+	//
+	// ⚠️ 同上：六站都是草稿，所以這裡也**測不到成功路徑**——真正的對話
+	//    （含扣額度、呼叫 AI、寫 chat_turns）要等第一站轉 playable。
+	//    能端到端驗的是「請求本身不合格」那一側，也就是 4xx 的界線。
+	//
+	// ★★★ 這一段真正在守的東西：**什麼該是 4xx、什麼該是 200。** ★★★
+	//    企劃書 §8.7 要求 AI 失效視為正常回應，所以只要 speak() 回了一句話
+	//    就必須是 200。反過來說，這裡列出的每一條都是「連 speak() 都進不去」的情況。
+	console.log('\n── 對話 ──');
+
+	const chat = (body: unknown, extra: Record<string, string> = {}) =>
+		fetch(`${BASE}/api/chat`, {
+			method: 'POST',
+			headers: { ...auth, 'content-type': 'application/json', ...extra },
+			body: typeof body === 'string' ? body : JSON.stringify(body)
+		});
+
+	// ★ 帶著龍山寺的真憑證敲草稿站 —— 憑證有效，擋下來的只能是 status: draft
+	const draftChat = await chat(
+		{ siteId: 'longshan-temple', text: '這裡以前是什麼樣子？' },
+		{ [PRESENCE_HEADER]: String(insideBody.token ?? '') }
+	);
+	const draftChatBody = await draftChat.json();
+	check(
+		'★ 草稿站：憑證有效也聊不了',
+		draftChat.status === 403 && draftChatBody.code === 'site_not_playable',
+		`HTTP ${draftChat.status}，code=${draftChatBody.code}`
+	);
+
+	const ghostChat = await chat({ siteId: '沒有這一站', text: '哈囉' });
+	const ghostChatBody = await ghostChat.json();
+	check(
+		'不存在的景點 → 404',
+		ghostChat.status === 404 && ghostChatBody.code === 'unknown_site',
+		`HTTP ${ghostChat.status}，code=${ghostChatBody.code}`
+	);
+
+	// body 壞掉要回結構化的 400，不能變成 SvelteKit 的 HTML 錯誤頁
+	for (const [label, body] of [
+		['沒有 text', { siteId: 'longshan-temple' }],
+		['text 是空白', { siteId: 'longshan-temple', text: '   ' }],
+		['沒有 siteId', { text: '哈囉' }],
+		['根本不是 JSON', 'not json at all']
+	] as const) {
+		const res = await chat(body);
+		const parsed = await res.json().catch(() => null);
+		check(
+			`body 不合格（${label}）→ 400`,
+			res.status === 400 && parsed?.code === 'bad_request',
+			`HTTP ${res.status}，code=${parsed?.code ?? '（回的不是 JSON）'}`
+		);
+	}
+
+	// ★★★ 超長輸入是 200 ＋ 保底台詞，不是 400。★★★
+	//   這一條擋的是一個很容易犯的錯：把「輸入太長」順手擋在 gate 裡。
+	//   那會讓玩家收到一個沒有設計過的錯誤畫面，而 §8.7 要的是一句靈魂說的話。
+	//   ⚠️ 現在六站都是草稿，所以它仍然會被 site_not_playable 擋下來（403）——
+	//     這裡驗的是**它沒有變成 400**，也就是長度沒有被誤放進 gate。
+	const longText = await chat({ siteId: 'longshan-temple', text: '字'.repeat(5000) });
+	check(
+		'★ 超長輸入不是 400（長度該由 speak() 的 L1 處理，不是 gate）',
+		longText.status !== 400,
+		`HTTP ${longText.status} —— 400 表示長度被誤擋在 gate 裡了`
+	);
+
+	// 同 enter：不管走哪一條路，回應本文都不該出現人格卡的痕跡
+	const chatLeaked = [draftChatBody, ghostChatBody]
+		.map((b) => JSON.stringify(b))
+		.some((t) => /persona|identity|voice|taboo/i.test(t));
+	check('★ 回應裡沒有人格卡的痕跡', !chatLeaked);
+
 	console.log('');
 
 	// ── 6. 資料庫實際狀況 ───────────────────────────────────────
