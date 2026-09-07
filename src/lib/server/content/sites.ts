@@ -18,6 +18,7 @@
  */
 import { parse as parseYaml } from 'yaml';
 import { SiteSchema, type Site } from '../../../../content/schema';
+import type { PublicSite } from '$lib/shared/api';
 
 /**
  * ★★★ 給前端的景點資料。★★★
@@ -33,20 +34,16 @@ import { SiteSchema, type Site } from '../../../../content/schema';
  *    `sites.spec.ts` 有一條測試把欄位清單釘死，加欄位會讓測試失敗——
  *    那個失敗不是要擋你，是要你在那一刻回答上面那個問題。
  */
-export type PublicSite = {
-	id: string;
-	/** 已經選好語言的字串。語言選擇是伺服器的事，前端不必知道有幾種語言 */
-	name: string;
-	tagline: string;
-	lat: number;
-	lng: number;
-	/** 感應半徑（公尺）。前端畫漣漪用 */
-	sensingM: number;
-	/** draft 的站在地圖上看得到，但進不去 */
-	status: 'draft' | 'playable';
-	hasStory: boolean;
-	storyOrder: number | null;
-};
+/**
+ * ★ 定義在 `$lib/shared/api.ts`，這裡只是 re-export。
+ *
+ *   前端也要認識這個形狀，但它 import 不到 `$lib/server/*`（SvelteKit 擋著，
+ *   而那是對的——這個檔案裡有 radiusM）。共用型別放 shared/，
+ *   兩邊各寫一份的話會漂移，而漂移那天 TypeScript 會安靜地通過。
+ *
+ *   ⚠️ 那份型別裡**沒有 radiusM**，而且永遠不會有。
+ */
+export type { PublicSite } from '$lib/shared/api';
 
 /** 到場判定用的幾何資料。★ 只在伺服器端流動，不會出現在任何回應裡 */
 export type SiteGeo = {

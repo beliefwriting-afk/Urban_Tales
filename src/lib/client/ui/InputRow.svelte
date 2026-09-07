@@ -56,7 +56,7 @@
 				<span class="ut-txt">回到我的位置</span>
 			</button>
 		{/if}
-		<button class="ut-px-frame flat" onclick={() => session.lookAround()}>
+		<button class="ut-px-frame flat" onclick={() => session.summon()}>
 			<svg
 				width="14"
 				height="14"

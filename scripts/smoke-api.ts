@@ -337,8 +337,62 @@ async function main() {
 				{ cookie: `${COOKIE}=${token}; ut_demo=${demoValue}` }
 			);
 			check('展示模式也不能指定不存在的景點', nowhere.status === 404, `HTTP ${nowhere.status}`);
+
+			// ★★★ 切片 7：前端要顯示展示模式標示條，而那張 cookie 是 HttpOnly——
+			//     所以「我在不在展示模式」只能由伺服器回答。
+			const meDemo = await fetch(`${BASE}/api/me`, {
+				headers: { cookie: `${COOKIE}=${token}; ut_demo=${demoValue}` }
+			});
+			const meDemoBody = await meDemo.json();
+			check(
+				'★ 帶著展示模式 cookie 時 /api/me 的 demoMode 是 true',
+				meDemoBody.demoMode === true,
+				`demoMode=${meDemoBody.demoMode}`
+			);
+
+			// 關閉展示模式（設定頁那顆按鈕走的路）
+			const leave = await fetch(`${BASE}/demo?leave=1`, {
+				headers: { cookie: `${COOKIE}=${token}; ut_demo=${demoValue}` },
+				redirect: 'manual'
+			});
+			const cleared = leave.headers
+				.getSetCookie()
+				.some((c) => c.startsWith('ut_demo=') && /Max-Age=0|Expires=Thu, 01 Jan 1970/i.test(c));
+			check(
+				'★ /demo?leave=1 會把展示模式 cookie 清掉',
+				cleared,
+				'前端刪不掉 HttpOnly cookie，所以關閉也得由伺服器做'
+			);
 		}
 	}
+
+	// ══ 玩家自己的資料（切片 7）════════════════════════════════
+	console.log('\n── /api/me ──');
+
+	const me = await fetch(`${BASE}/api/me`, { headers: auth });
+	const meBody = await me.json();
+	check(
+		'拿得到自己的稱呼與建立時間',
+		me.status === 200 && typeof meBody.label === 'string' && meBody.label.startsWith('旅人 #'),
+		`HTTP ${me.status}，label=${meBody.label}`
+	);
+	check(
+		'沒有展示模式 cookie 時 demoMode 是 false',
+		meBody.demoMode === false,
+		`demoMode=${meBody.demoMode}`
+	);
+	// ⚠️ 這一份跟「是誰在問」有關，任何一層快取都不該留它。
+	check(
+		'★ /api/me 不可以被快取',
+		(me.headers.get('cache-control') ?? '').includes('no-store'),
+		`cache-control=${me.headers.get('cache-control')}`
+	);
+	// ★ 稱呼只露出 uuid 的前四碼，不是整串 id
+	check(
+		'★ 回應裡沒有完整的玩家 uuid',
+		!/[0-9a-f]{8}-[0-9a-f]{4}-/i.test(JSON.stringify(meBody)),
+		JSON.stringify(meBody)
+	);
 
 	// ══ 進入景點（切片 4）══════════════════════════════════════
 	//

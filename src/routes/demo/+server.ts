@@ -21,6 +21,17 @@ import {
 import { dev } from '$app/environment';
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
+	// ★ 關閉展示模式（`/demo?leave=1`）。切片 7 加的。
+	//
+	//   為什麼需要一條專門的路：cookie 是 HttpOnly，前端刪不掉它——
+	//   那正是它的重點（前端不能自己宣告「我是展示模式」，也就不該能自己取消）。
+	//   ⚠️ 不做這條的話，唯一的關閉方式是等兩小時過期，而設定頁上那顆
+	//     「關閉展示模式」按鈕就會變成一個騙人的開關。
+	if (url.searchParams.has('leave')) {
+		cookies.delete(DEMO_COOKIE, { path: '/' });
+		redirect(303, '/');
+	}
+
 	const key = url.searchParams.get('key') ?? '';
 
 	if (passphraseMatches(key, env.DEMO_PASSPHRASE)) {

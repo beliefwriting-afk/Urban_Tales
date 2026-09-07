@@ -10,6 +10,7 @@
 	 *
 	 * 桌機上包一層手機外框方便對照設計；手機上外框會自動讓開，直接滿版。
 	 */
+	import { onMount } from 'svelte';
 	import '$lib/styles/tokens.css';
 	import { session } from '$lib/client/mock/session.svelte';
 	import ChatLayer from '$lib/client/ui/ChatLayer.svelte';
@@ -20,6 +21,20 @@
 	import SoulLayer from '$lib/client/ui/SoulLayer.svelte';
 	import Toast from '$lib/client/ui/Toast.svelte';
 	import TopBar from '$lib/client/ui/TopBar.svelte';
+
+	/**
+	 * ★ 切片 7：啟動時跟伺服器要景點、身分、圖鑑。
+	 *
+	 *   放 onMount 而不是 SvelteKit 的 `load`：這三份資料都跟「這個瀏覽器是誰」
+	 *   有關（`/api/me` 讀的是 cookie），而且地圖是純前端狀態機——
+	 *   走 SSR 的 load 只會讓伺服器多渲染一份馬上就被前端狀態蓋掉的畫面。
+	 *
+	 *   ⚠️ 沒接上之前畫面是空的（沒有景點就沒有圖釘），所以 session.ready
+	 *   與 session.loadError 要顯示出來，不能靜靜地留一片空白。
+	 */
+	onMount(() => {
+		void session.load();
+	});
 </script>
 
 <svelte:head>
@@ -59,6 +74,24 @@
 
 			<SoulLayer />
 			<TopBar />
+
+			<!--
+				★ 展示模式的標示條（SDD §5.4 要求全程顯示）。
+				  ⚠️ 它讀的是 /api/me 回的值，不是前端自己的開關——
+				  前端已經沒有那個開關了（切片 7 刪掉的第 2 項）。
+			-->
+			{#if session.demoMode}
+				<div class="demobar ut-txt">展示模式</div>
+			{/if}
+
+			{#if session.loadError}
+				<div class="loaderr ut-txt">
+					{session.loadError}
+					<button onclick={() => session.load()}>重試</button>
+				</div>
+			{:else if !session.ready}
+				<div class="loaderr ut-txt">載入中⋯⋯</div>
+			{/if}
 			{#if session.mode !== 'map'}
 				<ChatLayer />
 			{/if}
@@ -70,7 +103,7 @@
 
 	<DebugBar />
 	<p class="note">
-		拖滑桿走近景點 → 圖釘出現漣漪 → 點它進入相遇 → 按相機鈕切到 L3，靈魂可拖曳縮放。
+		拖滑桿走近景點 → 按「呼喚靈魂」問伺服器 → 拿到在場憑證才點得進去 → 按相機鈕切到 L3。
 	</p>
 </div>
 
@@ -106,6 +139,45 @@
 		height: 620px;
 		overflow: hidden;
 		background: var(--ut-bg-map);
+	}
+	/* 展示模式標示條：SDD §5.4 要求全程顯示，所以它蓋在所有層之上 */
+	.demobar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 99;
+		text-align: center;
+		font-size: 10px;
+		line-height: 18px;
+		background: rgba(43, 38, 32, 0.82);
+		color: #f4f1ea;
+		letter-spacing: 2px;
+		pointer-events: none;
+	}
+	.loaderr {
+		position: absolute;
+		left: 16px;
+		right: 16px;
+		bottom: 96px;
+		z-index: 98;
+		padding: 8px 10px;
+		font-size: 11px;
+		line-height: 1.7;
+		text-align: center;
+		background: rgba(43, 38, 32, 0.86);
+		color: #f4f1ea;
+		border-radius: 4px;
+	}
+	.loaderr button {
+		margin-left: 8px;
+		font: inherit;
+		color: inherit;
+		background: none;
+		border: 1px solid currentColor;
+		border-radius: 3px;
+		padding: 1px 8px;
+		cursor: pointer;
 	}
 	.cambg {
 		position: absolute;

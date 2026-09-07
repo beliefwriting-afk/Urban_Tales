@@ -10,22 +10,37 @@
 	let phrase = $state('');
 	let showPrivacy = $state(false);
 
-	/** 展示模式的通關密語（SDD §5.4／T3）。正式版由環境變數 DEMO_PASSPHRASE 提供 */
-	const DEMO_PHRASE = 'wanhua';
-
+	/**
+	 * ★★★ 切片 7：密語不再由前端比對。★★★
+	 *
+	 *   這裡原本有一行 `const DEMO_PHRASE = 'wanhua'`，比對通過就直接把
+	 *   `session.demoMode` 設成 true——**完全沒有碰伺服器**。
+	 *   密語寫在前端等於寫在 JS bundle 裡，任何人打開 devtools 就讀得到，
+	 *   **那等於密語不存在**（HANDOFF §14.8 第 2 項）。
+	 *
+	 *   現在的流程：把玩家輸入的字送去 `/demo?key=`，伺服器常數時間比對，
+	 *   對了才發那張 HttpOnly cookie。**前端不知道、也不該知道正確答案。**
+	 *
+	 * ⚠️ 導向會讓整頁重新載入，狀態會重來一次——這是可以接受的：
+	 *   開關展示模式本來就是一件「換一個身分重新開始」的事。
+	 *   而且 303 之後密語就離開網址列了。
+	 */
 	function tryDemo() {
 		if (session.demoMode) {
-			session.demoMode = false;
-			session.showToast('展示模式已關閉');
+			// cookie 是 HttpOnly，前端刪不掉——關閉也只能請伺服器做
+			window.location.href = '/demo?leave=1';
 			return;
 		}
-		if (phrase.trim().toLowerCase() !== DEMO_PHRASE) {
-			session.showToast('密語不對');
+
+		const key = phrase.trim();
+		if (!key) {
+			session.showToast('先輸入密語');
 			return;
 		}
-		session.demoMode = true;
-		phrase = '';
-		session.showToast('展示模式開啟：所有召喚點都進得去');
+
+		// ★ 這裡不判斷對不對，也判斷不了。對錯是伺服器的事，
+		//   而且成功與失敗都會導回首頁——錯誤提示會告訴人「這裡確實有一道門」。
+		window.location.href = `/demo?key=${encodeURIComponent(key)}`;
 	}
 </script>
 
