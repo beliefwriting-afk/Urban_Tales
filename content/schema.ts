@@ -264,7 +264,24 @@ export const FallbackSchema = z.object({
 		/** 額度用盡 */
 		quotaReached: z.array(LocalizedText).min(2),
 		/** 玩家離題（問天氣、問你是不是 AI…） */
-		offTopic: z.array(LocalizedText).min(3)
+		offTopic: z.array(LocalizedText).min(3),
+		/**
+		 * ★ 玩家一次講太多，或送得太快（`input_too_long` / `rate_limit`）。
+		 *
+		 * 【2026-09-07 新增】原本這兩個失效理由沒有指定台詞。
+		 *
+		 * ★★★ 為什麼不能借用 `aiUnavailable`：那一組刻意有一句是**收掉回合**的
+		 *   （「今天我話少」），而這兩種失效**是玩家改變行為就能解決的**。
+		 *   收掉回合等於告訴玩家「不要再試了」，而他其實只要短一點就好。
+		 *   更糟的是另外兩句「再說一次」——玩家把同一段超長輸入原樣再送一次，
+		 *   **確定性死迴圈**。
+		 *
+		 * 所以這一組的硬性要求是：**每一句都要給得出可執行的下一步**
+		 * （短一點／挑一件／等一下），不能只說「我沒聽懂」。
+		 *
+		 * 兩種理由共用一組，因為對玩家的指示方向是同一個：慢下來、一次一件。
+		 */
+		slowDown: z.array(LocalizedText).min(2)
 	})
 });
 export type FallbackFile = z.infer<typeof FallbackSchema>;
@@ -434,7 +451,40 @@ export const GuardrailsSchema = z.object({
 				source: z.string()
 			})
 		)
-		.min(8)
+		.min(8),
+
+	/**
+	 * ★ 輸入端關鍵詞檢查（`speak()` 第 5 步）。
+	 *
+	 * ★★★ 這是**成本優化，不是安全防線**。★★★
+	 *   真正的防線是上面那八條護欄——它們每一次呼叫都在 prompt 裡。
+	 *   這份清單只是「這句話明顯會被拒絕，那就不要先花錢問模型」。
+	 *
+	 * 因為它不是防線，判準就很清楚：**寧可漏，不可誤擋**。
+	 *   漏掉 ＝ 多花 $0.00077，然後護欄照樣擋下來，玩家收到的是有品質的拒絕。
+	 *   誤擋 ＝ 玩家問了一個合法問題卻被機械地打回，而且他不知道為什麼。
+	 *
+	 * 所以清單裡只放「幾乎不可能出現在合法問句裡」的**短語**，不放單詞：
+	 *   ❌「算命」——「這條街以前有算命的嗎」是合法問題（霞海、剝皮寮都答得出來）
+	 *   ✅「幫我算命」——這只有一種意思
+	 *
+	 * `reason` 決定回哪一組台詞：`refusal`（禁忌）或 `offTopic`（與這裡無關）。
+	 * 兩組台詞的語氣本來就是照這個區分寫的——問解籤與叫它寫程式不該收到同一句話。
+	 */
+	inputBlocklist: z
+		.array(
+			z.object({
+				id: z.string().regex(/^[a-z0-9-]+$/),
+				/** 命中之後回哪一組保底台詞 */
+				reason: z.enum(['refusal', 'offTopic']),
+				/**
+				 * 比對用的短語。**至少 3 個字**——兩個字的詞誤擋率太高，
+				 * 而漏掉的代價只是一次 API 呼叫。由 content:check #14 強制。
+				 */
+				terms: z.array(z.string().min(3)).min(1)
+			})
+		)
+		.default([])
 });
 export type Guardrails = z.infer<typeof GuardrailsSchema>;
 

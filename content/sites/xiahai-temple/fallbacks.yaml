@@ -88,3 +88,15 @@ lines:
       en: null
       ja: null
 
+  # ★ 玩家一次講太多／送太快（input_too_long、rate_limit）
+  #   每一句都要給得出可執行的下一步——這一組不能只說「我沒聽懂」
+  slowDown:
+    - zhHant: 唷，一口氣講這麼多，你是要考我嗎？分幾次講，我慢慢答。
+      en: null
+      ja: null
+    - zhHant: 等等，我還沒把你上一句聽完呢。急什麼。
+      en: null
+      ja: null
+    - zhHant: 話太長我會漏。挑重點的那一句，其他的等一下再說。
+      en: null
+      ja: null

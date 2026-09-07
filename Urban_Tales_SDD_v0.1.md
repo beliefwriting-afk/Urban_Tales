@@ -387,6 +387,8 @@ export const FallbackSchema = z.object({
     quotaReached:  z.array(LocalizedText).min(2),
     /** 玩家離題（問天氣、問你是不是 AI…） */
     offTopic:      z.array(LocalizedText).min(3),
+    /** ★ 玩家一次講太多／送太快。每一句都要給得出可執行的下一步 */
+    slowDown:      z.array(LocalizedText).min(2),
   }),
 });
 
@@ -763,7 +765,8 @@ export type SpeakResult = {
   text: string;
   isFallback: boolean;
   fallbackReason?: 'ai_error' | 'quota' | 'rate_limit' | 'global_cap'
-                 | 'input_too_long' | 'blocked_topic' | 'output_rejected';
+                 | 'input_too_long' | 'blocked_topic' | 'off_topic'
+                 | 'output_rejected';
   // ⚠️ 這裡刻意**沒有** `nextPrompts`。每站恰好三題、寫死，所以沒有「下一批」這回事：
   //   前端一開始就把那三題拿到手（跟著 /api/site/:id/enter 的回應），
   //   之後每一輪都是同樣三題，伺服器不必再回一次。
@@ -775,7 +778,9 @@ export async function speak(ctx: SpeakContext): Promise<SpeakResult> {
   // 2. 速率限制（token bucket）
   // 3. 每玩家每日額度
   // 4. 全域每日額度
-  // 5. 輸入端主題檢查（明確禁忌關鍵詞 → 直接走 refusal 保底，不燒 token）
+  // 5. 輸入端關鍵詞檢查（content/guardrails.yaml 的 inputBlocklist）
+  //    → 禁忌走 refusal，與這裡無關的一般任務走 offTopic，都不燒 token
+  //    ★ 這是成本優化不是安全防線，判準是寧可漏、不可誤擋
   // 6. 組裝 prompt（護欄最後注入，見 §6.2）
   // 7. 呼叫 AI（含逾時與重試）
   // 8. 輸出端檢查
@@ -942,17 +947,40 @@ CI 跑 `eslint --max-warnings 0`，**違反即建置失敗**。
 第 7 階  素材庫查無                 → 交給 AI 處理（格式要求已教它怎麼說）
 ```
 
-⚠️ **`fallbacks.yaml` 的五組台詞，只有三組出現在這個階梯上**
+⚠️ **`fallbacks.yaml` 的六組台詞，只有三組出現在這個階梯上**
 （`aiUnavailable`、`quotaReached`、`refusal`）。另外兩組的觸發點在階梯之外：
 
 - **`unknown`** —— 輸出端檢查判定「答的東西不在素材庫裡」時回退。不在降級階梯上，
   因為第 7 階本來就是交給 AI 處理；`unknown` 是**它答壞了**才用。
 - **`offTopic`** —— 輸入端主題檢查判定「與這個地方無關」時回退（護欄第 7、8 條）。
 
-⚠️ **`speak.ts` 的 `FallbackReason` 有七個值，而台詞只有五組。**
-`rate_limit`、`input_too_long`、`output_rejected` 目前**沒有指定對應哪一組**
-——切片 5 動手前要先決定。特別注意 `input_too_long`：若落到 `aiUnavailable`，
-玩家收到「我沒聽清，再說一次」，於是把同一段超長輸入再送一次，**確定性死迴圈**。
+**★ 八個失效理由 → 六組台詞的完整對應**（`src/lib/server/soul/fallback.ts` 的
+`FALLBACK_KEY`，2026-09-07 定案）：
+
+| 失效理由 | 台詞組 | 為什麼 |
+|---|---|---|
+| `ai_error` | `aiUnavailable` | 第 3 階 |
+| `global_cap` | `aiUnavailable` | ★ 第 5 階對玩家的表現必須與第 3 階完全相同 |
+| `quota` | `quotaReached` | 第 4 階 |
+| `blocked_topic` | `refusal` | 第 6 階 |
+| `off_topic` | `offTopic` | 輸入端判定與這裡無關（護欄第 7、8 條） |
+| `output_rejected` | `unknown` | 輸出端判定答的東西不在素材庫 |
+| `rate_limit` | `slowDown` | ★ 見下 |
+| `input_too_long` | `slowDown` | ★ 見下 |
+
+★★★ **`input_too_long` 與 `rate_limit` 絕對不能落到 `aiUnavailable`。**
+那一組有一句是收掉回合的（「今天我話少」），等於叫玩家不要再試；另外兩句是
+「再說一次」——玩家把同一段超長輸入原樣再送一次，**確定性死迴圈**。
+這兩種失效是**玩家改變行為就能解決**的，所以 `slowDown` 的每一句都必須給得出
+可執行的下一步（短一點／挑一件／等一下）。
+
+★ 對應表寫成 `Record<FallbackReason, FallbackReasonKey>` 而不是 switch，
+是為了讓**少對應一個理由變成編譯錯誤**——加第九個理由時 TypeScript 會擋下來，
+而不是在執行期回一個 undefined 給玩家。
+
+⚠️ **`off_topic` 是 2026-09-07 補的。** 在那之前 `FallbackReason` 沒有這個值，
+於是 `offTopic` 那六站十八句**沒有任何理由對應得到**——寫了永遠不會被玩家看到，
+而且不會有任何錯誤。跟 content:check #11 擋的是同一種病。
 
 **HTTP 狀態一律 200。** 前端不存在「對話錯誤」這個 UI 狀態。
 

@@ -11,6 +11,8 @@
  *
  * ⚠️ 這是本專案最重要的一個檔案。動它之前先讀 SDD §6.1–§6.6。
  */
+import type { FallbackReason } from './fallback';
+
 export type PresenceMode = 'field' | 'demo';
 
 export type SpeakContext = {
@@ -23,14 +25,17 @@ export type SpeakContext = {
 	origin: 'freetext' | 'guided-prompt' | 'story-node';
 };
 
-export type FallbackReason =
-	| 'ai_error'
-	| 'quota'
-	| 'rate_limit'
-	| 'global_cap'
-	| 'input_too_long'
-	| 'blocked_topic'
-	| 'output_rejected';
+/**
+ * 失效理由。
+ *
+ * ⚠️ 定義本體在 `./fallback.ts`（跟「哪個理由回哪一組台詞」放在一起，
+ *   免得兩個檔案互相 import）。這裡 re-export 是為了讓對外的介面維持
+ *   SDD §6.1 寫的形狀：呼叫端只需要認識 speak.ts。
+ *
+ * 【2026-09-07】從七個值變成八個，新增 `off_topic`——原本 `fallbacks.yaml`
+ * 的 `offTopic`（六站十八句）沒有任何理由對應得到它。
+ */
+export type { FallbackReason } from './fallback';
 
 export type SpeakResult = {
 	text: string;
@@ -72,9 +77,12 @@ export async function speak(ctx: SpeakContext): Promise<SpeakResult> {
 	//                            ★ 對玩家的表現必須與 SDD §6.5 的**第 3 階（AI 失效）**
 	//                              完全相同——注意那是 §6.5 的「階」，不是這裡的「步」
 	//                              走 fallbacks.aiUnavailable，不是 quotaReached
-	//  5. 輸入端主題檢查（明確禁忌關鍵詞）
-	//                            → fallback 'blocked_topic' → fallbacks.refusal
-	//                            ★ 在這裡擋掉是為了不燒 token
+	//  5. 輸入端關鍵詞檢查（content/guardrails.yaml 的 inputBlocklist）
+	//                            → 禁忌：'blocked_topic' → fallbacks.refusal
+	//                            → 無關的一般任務：'off_topic' → fallbacks.offTopic
+	//                            ★ 在這裡擋掉是為了不燒 token，**它不是安全防線**
+	//                              （防線是每次都在 prompt 裡的那八條護欄），
+	//                              所以判準是寧可漏、不可誤擋
 	//  6. 組裝 prompt            ★ 護欄最後注入（§6.2），順序：
 	//                              [1] 人格卡 [2] 素材庫 [3] 格式要求 [4] 全域護欄
 	//  7. 呼叫 AI                逾時 8s → 重試 1 次並換模型（primary → fallback）
@@ -82,6 +90,11 @@ export async function speak(ctx: SpeakContext): Promise<SpeakResult> {
 	//  8. 輸出端檢查             → 不合格：fallback 'output_rejected'
 	//  9. 記錄用量與對話         chat_turns（含 is_fallback）、usage_* 兩張表
 	//
+	// ★ 每一步失敗時該回哪一組台詞，**不要在這裡各自判斷**——
+	//   對應表在 ./fallback.ts 的 FALLBACK_KEY，一次列完八個理由。
+	//   寫成 Record 是為了讓「漏掉一個理由」變成編譯錯誤，而不是執行期
+	//   回一個 undefined 給玩家。用法：fallbackLine(fallbacks, reason)。
+
 	// 實作時 AI 呼叫只能透過：
 	//   import { complete } from '$lib/server/ai/client';
 	// 這個 import 在其他任何檔案都會被 ESLint 擋下來。

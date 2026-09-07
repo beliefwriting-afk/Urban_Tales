@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 建置期內容驗證 —— SDD §2.4 的十項 ＋ #3b／#7b／#11–#13，外加隱私與範本金鑰掃描。
+ * 建置期內容驗證 —— SDD §2.4 的十項 ＋ #3b／#7b／#11–#14，外加隱私與範本金鑰掃描。
  *
  * 在 CI 與 prebuild 執行，★ 驗不過就不給部署 ★。
  *
@@ -578,6 +578,62 @@ for (const b of bundles) {
 	}
 }
 
+// ─── 檢查 #14：輸入端關鍵詞不得誤擋我們自己的問句 ────────────
+//
+// `content/guardrails.yaml` 的 inputBlocklist 是**成本優化不是安全防線**
+// （理由見那個檔的說明），判準因此是「寧可漏，不可誤擋」。
+//
+// ★★★ 最確定的一種誤擋，是擋掉我們自己給玩家點的按鈕。★★★
+//   引導提問（每站三題）與劇情選項按下去等同玩家自己送出那段文字——
+//   如果那段文字命中 blocklist，玩家點了按鈕卻收到一句拒絕，
+//   而且**畫面上完全看不出哪裡錯了**。
+//
+// 這一條把那件事變成建置錯誤。順帶擋跨組重複的短語：
+// 同一個短語出現在 refusal 與 offTopic 兩組時，命中哪一組要看陣列順序，
+// 那是沒有定義的行為。
+
+const blocklist = guardrails?.inputBlocklist ?? [];
+
+const termOwner = new Map<string, string>();
+for (const g of blocklist) {
+	for (const term of g.terms) {
+		const seen = termOwner.get(term);
+		if (seen) {
+			fail(
+				'#14 誤擋',
+				`短語 "${term}" 同時出現在 ${seen} 與 ${g.id} —— 命中哪一組要看陣列順序，那是沒有定義的行為`
+			);
+		} else {
+			termOwner.set(term, g.id);
+		}
+	}
+}
+
+for (const b of bundles) {
+	const ours: { where: string; text: string }[] = [];
+	for (const item of b.prompts?.items ?? []) {
+		ours.push({ where: `prompts.yaml 的 "${item.id}"`, text: item.text.zhHant });
+	}
+	if (b.story) {
+		ours.push({ where: 'story.yaml 的 entry', text: b.story.entry.text.zhHant });
+	}
+
+	for (const { where, text } of ours) {
+		const lower = text.toLowerCase();
+		for (const g of blocklist) {
+			for (const term of g.terms) {
+				if (lower.includes(term.toLowerCase())) {
+					fail(
+						'#14 誤擋',
+						`${b.dir}/${where} 命中 inputBlocklist 的 "${term}"（${g.id}）—— ` +
+							`玩家點了我們自己給的按鈕卻會收到拒絕台詞`
+					);
+				}
+			}
+		}
+	}
+}
+
 // ─── 額外：隱私 schema 硬約束（SDD §3.3）─────────────────────
 // 資料庫 schema 裡不得出現任何位置欄位。
 // 這不是慣例，是企劃書 §7、§8.8 的硬約束。
@@ -681,6 +737,9 @@ console.log(
 	`劇情線：${storyOrders.length ? storyOrders.map((s) => `${s.order}. ${s.dir}`).join(' → ') : '（無）'}`
 );
 console.log(`全域護欄：${guardrails ? `${guardrails.rules.length} 條` : '❌ 缺少'}`);
+console.log(
+	`\u3000輸入端關鍵詞：${blocklist.length} 組、${blocklist.reduce((n, g) => n + g.terms.length, 0)} 個短語`
+);
 console.log('');
 
 for (const b of bundles) {
