@@ -439,6 +439,21 @@ export const CardsFileSchema = z.object({
 export const GuardrailsSchema = z.object({
 	/** 注入 system prompt 最前面的優先權宣告（SDD §6.2） */
 	precedence: z.string().min(1),
+
+	/**
+	 * 回答格式與長度要求（SDD §6.2 的 [3]、§6.3 的「格式要求段」）。
+	 *
+	 * ★ 為什麼放在這個檔案：它跟護欄一樣是**逐字進 prompt 的措辭**，
+	 *   而且跟護欄一樣全站共用一份——六個靈魂的說話長度規則沒有理由不一樣。
+	 *
+	 * ★ 為什麼**不**放進 `rules`：那八條是安全承諾（企劃書 §4.2 的落點，
+	 *   改動等同改產品的安全承諾）。格式要求是體驗調校，改它不需要同一層級的謹慎。
+	 *   混在一起會讓「改一條 rule」這件事失去重量。
+	 *
+	 * ⚠️ 它在 prompt 裡是第 3 段，**護欄仍然在最後**（§6.2）。
+	 */
+	outputFormat: z.string().min(1),
+
 	rules: z
 		.array(
 			z.object({

@@ -1256,7 +1256,7 @@ Error: Failed query: insert into "players" (...) values (...)
 | 批 | 內容 | 狀態 |
 |---|---|---|
 | 1 | 失效理由對應表、`slowDown` 台詞、輸入端關鍵詞清單 | ✅ 2026-09-07 |
-| 2 | 內容載入器（fallbacks／materials／guardrails）＋ prompt 組裝 | ⬜ |
+| 2 | 內容載入器（fallbacks／materials／guardrails）＋ prompt 組裝 | ✅ 2026-09-07 |
 | 3 | 三支資料庫控制：速率（`rate_buckets`）、每日額度、全域上限 | ⬜ |
 | 4 | `speak()` 九步串起來 ＋ `POST /api/chat` ＋ smoke | ⬜ |
 
@@ -1303,3 +1303,37 @@ Error: Failed query: insert into "players" (...) values (...)
 
 順帶擋跨組重複的短語：同一個短語出現在 `refusal` 與 `offTopic` 兩組時，
 命中哪一組要看陣列順序，那是沒有定義的行為。
+
+### 18.4 第二批做了什麼
+
+- `content/fallbacks.ts`、`content/materials.ts`、`content/guardrails.ts` 三個載入器，
+  寫法照 `souls.ts`（建置期 `import.meta.glob`）。
+- `soul/prompt.ts`：system prompt 組裝，**純函式**。測試在 `prompt.spec.ts`。
+- `guardrails.yaml` 新增 **`outputFormat`**（回答格式與長度要求，SDD §6.2 的第 3 段）。
+
+**三個判斷**：
+
+**① `getGuardrails()` 刻意沒有 `siteId` 參數。**
+SDD §2.2：「沒有第二個地方可以放護欄，也就沒有第二套護欄。」
+如果介面收得下 siteId，就等於承認護欄可以有「某一站的版本」——
+而企劃書 §4.2 記錄的失敗模式正是這個。**介面本身就是那條規則。**
+
+**② `outputFormat` 放 `guardrails.yaml`，但不放進 `rules`。**
+它跟護欄一樣是逐字進 prompt、全站共用一份的措辭，所以同一個檔案；
+但那八條是**安全承諾**（改動等同改產品的安全承諾），格式要求是體驗調校。
+混在一起會讓「改一條 rule」這件事失去重量。
+
+**③ ⚠️ 「sources 不進 prompt」那條測試不能拿真資料比對。**
+西門紅樓的 legend 本文就寫著「西門紅樓官網自己的頁面寫⋯⋯」，而它的 `sources`
+也列了「西門紅樓官網」——那是**內容裡剛好提到出處**，不是出處欄位漏出去。
+拿真資料比對會誤判，然後有人會為了讓測試變綠而去改內容。
+改用哨兵字串（假的 Material，sources 填不可能出現的值）。
+★ 這是「假資料該用在哪」的一個清楚例子：形狀用真資料測，**洩漏用哨兵測**。
+
+### 18.5 量到的：固定前綴比 SDD 估的小
+
+六站組出來的 system prompt 是 2,900–3,200 字元，按護欄實測的字元／token 比外推
+**約 1,700–1,900 tokens**，而 §6.3 的框圖估 5,100（差距主要在素材庫）。
+
+★ **沒有因此調低成本模型**——偏高的保守估計不是錯誤，那正是它「不依賴樂觀假設」
+的性質。真正的數字等 P0-5 用回應裡的 `usage` 對帳。
